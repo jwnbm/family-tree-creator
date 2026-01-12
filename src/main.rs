@@ -219,10 +219,34 @@ impl App {
         if let Some(p) = self.tree.persons.get(&id) {
             let mut label = p.name.clone();
             
+            // 年齢を計算するヘルパー関数
+            let calculate_age = |birth: &str, end_date: Option<&str>| -> Option<i32> {
+                let birth_year = birth.split('-').next()?.parse::<i32>().ok()?;
+                let end_year = if let Some(ed) = end_date {
+                    ed.split('-').next()?.parse::<i32>().ok()?
+                } else {
+                    2026 // 現在の年
+                };
+                Some(end_year - birth_year)
+            };
+            
             // 誕生日を追加
             if let Some(b) = &p.birth {
                 if !b.is_empty() {
                     label.push_str(&format!("\n{}", b));
+                    
+                    // 年齢を計算
+                    if p.deceased {
+                        // 死亡している場合、享年を表示
+                        if let Some(age) = calculate_age(b, p.death.as_deref()) {
+                            label.push_str(&format!(" (died at {})", age));
+                        }
+                    } else {
+                        // 生きている場合、現在の年齢を表示
+                        if let Some(age) = calculate_age(b, None) {
+                            label.push_str(&format!(" (age {})", age));
+                        }
+                    }
                 }
             }
             
