@@ -104,6 +104,21 @@ impl FamilyTree {
             .collect()
     }
 
+    fn spouses_of(&self, person: PersonId) -> Vec<PersonId> {
+        self.spouses
+            .iter()
+            .filter_map(|s| {
+                if s.person1 == person {
+                    Some(s.person2)
+                } else if s.person2 == person {
+                    Some(s.person1)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     /// ルート（親がいない人物）を返す
     fn roots(&self) -> Vec<PersonId> {
         let mut has_parent = HashMap::<PersonId, bool>::new();
@@ -145,7 +160,6 @@ struct App {
 
     // 配偶者関係追加フォーム
     spouse1_pick: Option<PersonId>,
-    spouse2_pick: Option<PersonId>,
     spouse_memo: String,
 
     // 保存/読込
@@ -178,7 +192,6 @@ impl Default for App {
             relation_kind: "biological".to_string(),
 
             spouse1_pick: None,
-            spouse2_pick: None,
             spouse_memo: String::new(),
 
             file_path: "tree.json".to_string(),
@@ -387,22 +400,22 @@ impl eframe::App for App {
             ui.separator();
             ui.label("Persons");
             // 人物一覧
-            let mut ids: Vec<PersonId> = self.tree.persons.keys().copied().collect();
-            ids.sort_by_key(|id| self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
+            let mut all_ids: Vec<PersonId> = self.tree.persons.keys().copied().collect();
+            all_ids.sort_by_key(|id| self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
 
             egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
-                for id in ids {
+                for id in &all_ids {
                     let name = self.tree.persons.get(&id).map(|p| p.name.as_str()).unwrap_or("?");
-                    let selected = self.selected == Some(id);
+                    let selected = self.selected == Some(*id);
                     if ui.selectable_label(selected, name).clicked() {
-                        self.selected = Some(id);
+                        self.selected = Some(*id);
                     }
                 }
             });
 
             // 選択人物の編集
             ui.separator();
-            ui.label("Selected");
+            ui.label("Selected Person");
             if let Some(sel) = self.selected {
                 if let Some(p) = self.tree.persons.get_mut(&sel) {
                     ui.horizontal(|ui| {
@@ -420,8 +433,146 @@ impl eframe::App for App {
                     ui.label("Memo:");
                     ui.text_edit_multiline(&mut p.memo);
 
+                    ui.separator();
+                    
+                    // 既存の関係を表示
+                    ui.label("Relations:");
+                    
+                    // 父母を表示
+                    let parents = self.tree.parents_of(sel);
+                    if !parents.is_empty() {
+                        ui.horizontal(|ui| {
+                            ui.label("Parents:");
+                            for parent_id in &parents {
+                                if let Some(parent) = self.tree.persons.get(parent_id) {
+                                    if ui.small_button(&parent.name).clicked() {
+                                        self.selected = Some(*parent_id);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // 配偶者を表示
+                    let spouses = self.tree.spouses_of(sel);
+                    if !spouses.is_empty() {
+                        ui.horizontal(|ui| {
+                            ui.label("Spouses:");
+                            for spouse_id in &spouses {
+                                if let Some(spouse) = self.tree.persons.get(spouse_id) {
+                                    if ui.small_button(&spouse.name).clicked() {
+                                        self.selected = Some(*spouse_id);
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    ui.separator();
+                    ui.label("Add Relations:");
+                    
+                    // 親を追加
                     ui.horizontal(|ui| {
-                        if ui.button("Delete").clicked() {
+                        ui.label("Add Parent:");
+                        egui::ComboBox::from_id_salt("add_parent")
+                            .selected_text(
+                                self.parent_pick
+                                    .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
+                                    .unwrap_or_else(|| "(select)".into()),
+                            )
+                            .show_ui(ui, |ui| {
+                                for id in &all_ids {
+                                    if *id != sel {
+                                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                                        ui.selectable_value(&mut self.parent_pick, Some(*id), name);
+                                    }
+                                }
+                            });
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Kind:");
+                        ui.text_edit_singleline(&mut self.relation_kind);
+                        if ui.button("Add").clicked() {
+                            if let Some(parent) = self.parent_pick {
+                                let k = self.relation_kind.trim();
+                                let k = if k.is_empty() { "biological" } else { k };
+                                self.tree.add_parent_child(parent, sel, k.to_string());
+                                self.parent_pick = None;
+                                self.status = "Parent added".into();
+                            }
+                        }
+                    });
+
+                    ui.add_space(4.0);
+                    
+                    // 子を追加
+                    ui.horizontal(|ui| {
+                        ui.label("Add Child:");
+                        egui::ComboBox::from_id_salt("add_child")
+                            .selected_text(
+                                self.child_pick
+                                    .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
+                                    .unwrap_or_else(|| "(select)".into()),
+                            )
+                            .show_ui(ui, |ui| {
+                                for id in &all_ids {
+                                    if *id != sel {
+                                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                                        ui.selectable_value(&mut self.child_pick, Some(*id), name);
+                                    }
+                                }
+                            });
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Kind:");
+                        ui.text_edit_singleline(&mut self.relation_kind);
+                        if ui.button("Add").clicked() {
+                            if let Some(child) = self.child_pick {
+                                let k = self.relation_kind.trim();
+                                let k = if k.is_empty() { "biological" } else { k };
+                                self.tree.add_parent_child(sel, child, k.to_string());
+                                self.child_pick = None;
+                                self.status = "Child added".into();
+                            }
+                        }
+                    });
+
+                    ui.add_space(4.0);
+                    
+                    // 配偶者を追加
+                    ui.horizontal(|ui| {
+                        ui.label("Add Spouse:");
+                        egui::ComboBox::from_id_salt("add_spouse")
+                            .selected_text(
+                                self.spouse1_pick
+                                    .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
+                                    .unwrap_or_else(|| "(select)".into()),
+                            )
+                            .show_ui(ui, |ui| {
+                                for id in &all_ids {
+                                    if *id != sel {
+                                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                                        ui.selectable_value(&mut self.spouse1_pick, Some(*id), name);
+                                    }
+                                }
+                            });
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Memo:");
+                        ui.text_edit_singleline(&mut self.spouse_memo);
+                        if ui.button("Add").clicked() {
+                            if let Some(spouse) = self.spouse1_pick {
+                                self.tree.add_spouse(sel, spouse, self.spouse_memo.clone());
+                                self.spouse1_pick = None;
+                                self.spouse_memo.clear();
+                                self.status = "Spouse added".into();
+                            }
+                        }
+                    });
+
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("Delete Person").clicked() {
                             self.tree.remove_person(sel);
                             self.selected = None;
                         }
@@ -429,95 +580,6 @@ impl eframe::App for App {
                 }
             } else {
                 ui.label("(none)");
-            }
-
-            ui.separator();
-            ui.label("Add Parent-Child");
-            // 親子関係追加
-            let mut all_ids: Vec<PersonId> = self.tree.persons.keys().copied().collect();
-            all_ids.sort_by_key(|id| self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
-
-            egui::ComboBox::from_label("Parent")
-                .selected_text(
-                    self.parent_pick
-                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
-                        .unwrap_or_else(|| "(select)".into()),
-                )
-                .show_ui(ui, |ui| {
-                    for id in &all_ids {
-                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
-                        ui.selectable_value(&mut self.parent_pick, Some(*id), name);
-                    }
-                });
-
-            egui::ComboBox::from_label("Child")
-                .selected_text(
-                    self.child_pick
-                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
-                        .unwrap_or_else(|| "(select)".into()),
-                )
-                .show_ui(ui, |ui| {
-                    for id in &all_ids {
-                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
-                        ui.selectable_value(&mut self.child_pick, Some(*id), name);
-                    }
-                });
-
-            ui.label("Relation kind (biological...):");
-            ui.text_edit_singleline(&mut self.relation_kind);
-
-            if ui.button("Add Relation").clicked() {
-                match (self.parent_pick, self.child_pick) {
-                    (Some(pa), Some(ch)) if pa != ch => {
-                        let k = self.relation_kind.trim();
-                        let k = if k.is_empty() { "biological" } else { k };
-                        self.tree.add_parent_child(pa, ch, k.to_string());
-                    }
-                    _ => self.status = "Pick parent and child (different persons)".into(),
-                }
-            }
-
-            ui.separator();
-            ui.label("Add Spouse Relation");
-            
-            egui::ComboBox::from_label("Spouse 1")
-                .selected_text(
-                    self.spouse1_pick
-                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
-                        .unwrap_or_else(|| "(select)".into()),
-                )
-                .show_ui(ui, |ui| {
-                    for id in &all_ids {
-                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
-                        ui.selectable_value(&mut self.spouse1_pick, Some(*id), name);
-                    }
-                });
-
-            egui::ComboBox::from_label("Spouse 2")
-                .selected_text(
-                    self.spouse2_pick
-                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
-                        .unwrap_or_else(|| "(select)".into()),
-                )
-                .show_ui(ui, |ui| {
-                    for id in &all_ids {
-                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
-                        ui.selectable_value(&mut self.spouse2_pick, Some(*id), name);
-                    }
-                });
-
-            ui.label("Memo (marriage date...):");
-            ui.text_edit_singleline(&mut self.spouse_memo);
-
-            if ui.button("Add Spouse Relation").clicked() {
-                match (self.spouse1_pick, self.spouse2_pick) {
-                    (Some(s1), Some(s2)) if s1 != s2 => {
-                        self.tree.add_spouse(s1, s2, self.spouse_memo.clone());
-                        self.spouse_memo.clear();
-                        self.status = "Spouse relation added".into();
-                    }
-                    _ => self.status = "Pick two different persons".into(),
-                }
             }
 
             ui.separator();
