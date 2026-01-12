@@ -169,7 +169,7 @@ impl LayoutEngine {
         while x <= rect.right() {
             painter.line_segment(
                 [egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())],
-                egui::Stroke::new(1.0, egui::Color32::from_gray(200)),
+                egui::Stroke::new(0.5, egui::Color32::from_gray(220)),
             );
             x += grid_size;
         }
@@ -178,7 +178,7 @@ impl LayoutEngine {
         while y <= rect.bottom() {
             painter.line_segment(
                 [egui::pos2(rect.left(), y), egui::pos2(rect.right(), y)],
-                egui::Stroke::new(1.0, egui::Color32::from_gray(200)),
+                egui::Stroke::new(0.5, egui::Color32::from_gray(220)),
             );
             y += grid_size;
         }
