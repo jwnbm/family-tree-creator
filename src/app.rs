@@ -4,12 +4,19 @@ use std::fs;
 use eframe::egui;
 use crate::tree::{FamilyTree, Gender, PersonId};
 use crate::layout::LayoutEngine;
+use uuid::Uuid;
 
 // 定数
 const DEFAULT_RELATION_KIND: &str = "biological";
 const NODE_CORNER_RADIUS: f32 = 6.0;
 const EDGE_STROKE_WIDTH: f32 = 1.5;
 const SPOUSE_LINE_OFFSET: f32 = 2.0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SideTab {
+    Persons,
+    Families,
+}
 
 pub struct App {
     tree: FamilyTree,
@@ -52,6 +59,15 @@ pub struct App {
     
     // 設定ウィンドウ
     show_settings: bool,
+    
+    // サイドパネルタブ
+    side_tab: SideTab,
+    
+    // 家族管理
+    new_family_name: String,
+    new_family_color: [f32; 3],
+    editing_family: Option<Uuid>,
+    family_member_pick: Option<PersonId>,
 }
 
 impl Default for App {
@@ -89,6 +105,13 @@ impl Default for App {
             grid_size: 50.0,
             
             show_settings: false,
+            
+            side_tab: SideTab::Persons,
+            
+            new_family_name: String::new(),
+            new_family_color: [0.8, 0.8, 1.0],
+            editing_family: None,
+            family_member_pick: None,
         }
     }
 }
@@ -187,7 +210,17 @@ impl eframe::App for App {
         egui::SidePanel::left("left_panel").resizable(true).show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("Family Tree (MVP)");
+                
+                // タブ選択
+                ui.horizontal(|ui| {
+                    ui.selectable_value(&mut self.side_tab, SideTab::Persons, "👤 Persons");
+                    ui.selectable_value(&mut self.side_tab, SideTab::Families, "👪 Families");
+                });
                 ui.separator();
+
+            match self.side_tab {
+                SideTab::Persons => {
+                    // 個人管理タブ                ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("File:");
@@ -448,6 +481,117 @@ impl eframe::App for App {
             ui.separator();
             if ui.button("⚙ Settings").clicked() {
                 self.show_settings = !self.show_settings;
+            }
+                }
+                
+                SideTab::Families => {
+                    // 家族管理タブ
+                    ui.heading("Manage Families");
+                    ui.separator();
+                    
+                    // 新規家族作成
+                    ui.label("Create New Family:");
+                    ui.horizontal(|ui| {
+                        ui.label("Name:");
+                        ui.text_edit_singleline(&mut self.new_family_name);
+                    });
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Color:");
+                        ui.color_edit_button_rgb(&mut self.new_family_color);
+                    });
+                    
+                    if ui.button("Create Family").clicked() && !self.new_family_name.trim().is_empty() {
+                        let color = (
+                            (self.new_family_color[0] * 255.0) as u8,
+                            (self.new_family_color[1] * 255.0) as u8,
+                            (self.new_family_color[2] * 255.0) as u8,
+                        );
+                        self.tree.add_family(self.new_family_name.clone(), Some(color));
+                        self.new_family_name.clear();
+                        self.status = "Family created".into();
+                    }
+                    
+                    ui.separator();
+                    ui.label("Existing Families:");
+                    
+                    egui::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+                        let families = self.tree.families.clone();
+                        for family in &families {
+                        ui.group(|ui| {
+                            ui.horizontal(|ui| {
+                                // 色表示
+                                if let Some((r, g, b)) = family.color {
+                                    let color = egui::Color32::from_rgb(r, g, b);
+                                    let size = egui::vec2(20.0, 20.0);
+                                    ui.painter().rect_filled(
+                                        egui::Rect::from_min_size(ui.cursor().min, size),
+                                        2.0,
+                                        color
+                                    );
+                                    ui.allocate_space(size);
+                                }
+                                
+                                ui.strong(&family.name);
+                                ui.label(format!("({} members)", family.members.len()));
+                                
+                                if ui.small_button("Edit").clicked() {
+                                    self.editing_family = Some(family.id);
+                                }
+                                
+                                if ui.small_button("❌").clicked() {
+                                    self.tree.remove_family(family.id);
+                                    self.status = "Family removed".into();
+                                }
+                            });
+                            
+                            // メンバーリスト
+                            if !family.members.is_empty() {
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.label("Members:");
+                                    for member_id in &family.members {
+                                        if let Some(person) = self.tree.persons.get(member_id) {
+                                            if ui.small_button(&person.name).clicked() {
+                                                self.selected = Some(*member_id);
+                                            }
+                                            if ui.small_button("➖").clicked() {
+                                                self.tree.remove_member_from_family(family.id, *member_id);
+                                                self.status = "Member removed".into();
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            // メンバー追加UI
+                            ui.horizontal(|ui| {
+                                ui.label("Add member:");
+                                egui::ComboBox::from_id_salt(format!("member_pick_{}", family.id))
+                                    .selected_text(
+                                        self.family_member_pick
+                                            .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.as_str()))
+                                            .unwrap_or("(select)")
+                                    )
+                                    .show_ui(ui, |ui| {
+                                        for (id, person) in &self.tree.persons {
+                                            if !family.members.contains(id) {
+                                                ui.selectable_value(&mut self.family_member_pick, Some(*id), &person.name);
+                                            }
+                                        }
+                                    });
+                                    
+                                if let Some(pid) = self.family_member_pick {
+                                    if ui.small_button("Add").clicked() {
+                                        self.tree.add_member_to_family(family.id, pid);
+                                        self.family_member_pick = None;
+                                        self.status = "Member added".into();
+                                    }
+                                }
+                            });
+                        });
+                    }
+                });
+                }
             }
             });
         });
@@ -715,6 +859,66 @@ impl eframe::App for App {
                     let a = rp.center_bottom();
                     let b = rc.center_top();
                     painter.line_segment([a, b], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
+                }
+            }
+
+            // 家族の枠を描画
+            for family in &self.tree.families {
+                if family.members.len() < 2 {
+                    continue; // メンバーが1人以下の場合は枠を描画しない
+                }
+                
+                // メンバー全員を囲む矩形を計算
+                let mut min_x = f32::MAX;
+                let mut min_y = f32::MAX;
+                let mut max_x = f32::MIN;
+                let mut max_y = f32::MIN;
+                
+                for member_id in &family.members {
+                    if let Some(rect) = screen_rects.get(member_id) {
+                        min_x = min_x.min(rect.min.x);
+                        min_y = min_y.min(rect.min.y);
+                        max_x = max_x.max(rect.max.x);
+                        max_y = max_y.max(rect.max.y);
+                    }
+                }
+                
+                if min_x < f32::MAX {
+                    let padding = 20.0;
+                    let family_rect = egui::Rect::from_min_max(
+                        egui::pos2(min_x - padding, min_y - padding),
+                        egui::pos2(max_x + padding, max_y + padding)
+                    );
+                    
+                    let color = if let Some((r, g, b)) = family.color {
+                        egui::Color32::from_rgba_unmultiplied(r, g, b, 30)
+                    } else {
+                        egui::Color32::from_rgba_unmultiplied(200, 200, 255, 30)
+                    };
+                    
+                    let stroke_color = if let Some((r, g, b)) = family.color {
+                        egui::Color32::from_rgb(r, g, b)
+                    } else {
+                        egui::Color32::from_rgb(100, 100, 200)
+                    };
+                    
+                    painter.rect_filled(family_rect, 8.0, color);
+                    painter.rect_stroke(
+                        family_rect,
+                        8.0,
+                        egui::Stroke::new(2.0, stroke_color),
+                        egui::epaint::StrokeKind::Outside
+                    );
+                    
+                    // 家族名をラベル表示
+                    let label_pos = family_rect.left_top() + egui::vec2(10.0, 5.0);
+                    painter.text(
+                        label_pos,
+                        egui::Align2::LEFT_TOP,
+                        &family.name,
+                        egui::FontId::proportional(12.0 * self.zoom.clamp(0.7, 1.2)),
+                        stroke_color,
+                    );
                 }
             }
 

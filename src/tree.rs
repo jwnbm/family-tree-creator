@@ -47,12 +47,22 @@ pub struct Spouse {
     pub memo: String, // 結婚年月日などのメモ
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Family {
+    pub id: Uuid,
+    pub name: String,
+    pub members: Vec<PersonId>,
+    pub color: Option<(u8, u8, u8)>, // RGB色
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FamilyTree {
     pub persons: HashMap<PersonId, Person>,
     pub edges: Vec<ParentChild>,
     #[serde(default)]
     pub spouses: Vec<Spouse>,
+    #[serde(default)]
+    pub families: Vec<Family>,
 }
 
 impl FamilyTree {
@@ -161,6 +171,61 @@ impl FamilyTree {
         has_parent
             .into_iter()
             .filter_map(|(id, hp)| (!hp).then_some(id))
+            .collect()
+    }
+
+    // ===== 家族操作メソッド =====
+
+    pub fn add_family(&mut self, name: String, color: Option<(u8, u8, u8)>) -> Uuid {
+        let family = Family {
+            id: Uuid::new_v4(),
+            name,
+            members: Vec::new(),
+            color,
+        };
+        let id = family.id;
+        self.families.push(family);
+        id
+    }
+
+    pub fn remove_family(&mut self, family_id: Uuid) {
+        self.families.retain(|f| f.id != family_id);
+    }
+
+    pub fn add_member_to_family(&mut self, family_id: Uuid, person_id: PersonId) {
+        if let Some(family) = self.families.iter_mut().find(|f| f.id == family_id) {
+            if !family.members.contains(&person_id) {
+                family.members.push(person_id);
+            }
+        }
+    }
+
+    pub fn remove_member_from_family(&mut self, family_id: Uuid, person_id: PersonId) {
+        if let Some(family) = self.families.iter_mut().find(|f| f.id == family_id) {
+            family.members.retain(|&id| id != person_id);
+        }
+    }
+
+    pub fn update_family_name(&mut self, family_id: Uuid, name: String) {
+        if let Some(family) = self.families.iter_mut().find(|f| f.id == family_id) {
+            family.name = name;
+        }
+    }
+
+    pub fn update_family_color(&mut self, family_id: Uuid, color: Option<(u8, u8, u8)>) {
+        if let Some(family) = self.families.iter_mut().find(|f| f.id == family_id) {
+            family.color = color;
+        }
+    }
+
+    pub fn get_family(&self, family_id: Uuid) -> Option<&Family> {
+        self.families.iter().find(|f| f.id == family_id)
+    }
+
+    pub fn get_families_containing(&self, person_id: PersonId) -> Vec<&Family> {
+        self.families
+            .iter()
+            .filter(|f| f.members.contains(&person_id))
             .collect()
     }
 }
