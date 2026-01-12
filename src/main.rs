@@ -778,15 +778,6 @@ impl eframe::App for App {
                 self.last_pointer_pos = None;
             }
 
-            // 線描画（親→子）
-            for e in &self.tree.edges {
-                if let (Some(rp), Some(rc)) = (screen_rects.get(&e.parent), screen_rects.get(&e.child)) {
-                    let a = rp.center_bottom();
-                    let b = rc.center_top();
-                    painter.line_segment([a, b], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
-                }
-            }
-
             // 配偶者関係の線描画（二重線）
             for s in &self.tree.spouses {
                 if let (Some(r1), Some(r2)) = (screen_rects.get(&s.person1), screen_rects.get(&s.person2)) {
@@ -817,6 +808,77 @@ impl eframe::App for App {
                             egui::Color32::DARK_GRAY,
                         );
                     }
+                }
+            }
+
+            // 線描画（親→子）
+            // まず、各子について父母のペアを特定
+            let mut child_to_parents: HashMap<PersonId, Vec<PersonId>> = HashMap::new();
+            for e in &self.tree.edges {
+                child_to_parents.entry(e.child).or_default().push(e.parent);
+            }
+
+            let mut processed_children = std::collections::HashSet::new();
+
+            for e in &self.tree.edges {
+                let child_id = e.child;
+                
+                // すでに処理済みの子はスキップ
+                if processed_children.contains(&child_id) {
+                    continue;
+                }
+                
+                if let Some(parents) = child_to_parents.get(&child_id) {
+                    // 父母を性別で分類
+                    let mut father_id = None;
+                    let mut mother_id = None;
+                    let mut other_parents = Vec::new();
+                    
+                    for parent_id in parents {
+                        if let Some(parent) = self.tree.persons.get(parent_id) {
+                            match parent.gender {
+                                Gender::Male if father_id.is_none() => father_id = Some(*parent_id),
+                                Gender::Female if mother_id.is_none() => mother_id = Some(*parent_id),
+                                _ => other_parents.push(*parent_id),
+                            }
+                        }
+                    }
+                    
+                    // 父母が両方いて、かつ配偶者関係にある場合
+                    if let (Some(father), Some(mother)) = (father_id, mother_id) {
+                        let are_spouses = self.tree.spouses.iter().any(|s| {
+                            (s.person1 == father && s.person2 == mother) ||
+                            (s.person1 == mother && s.person2 == father)
+                        });
+                        
+                        if are_spouses {
+                            // 配偶者線の中点から子への線を引く
+                            if let (Some(rf), Some(rm), Some(rc)) = (
+                                screen_rects.get(&father),
+                                screen_rects.get(&mother),
+                                screen_rects.get(&child_id)
+                            ) {
+                                let father_center = rf.center();
+                                let mother_center = rm.center();
+                                let mid = egui::pos2(
+                                    (father_center.x + mother_center.x) / 2.0,
+                                    (father_center.y + mother_center.y) / 2.0
+                                );
+                                let child_top = rc.center_top();
+                                
+                                painter.line_segment([mid, child_top], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
+                            }
+                            processed_children.insert(child_id);
+                            continue;
+                        }
+                    }
+                }
+                
+                // 配偶者関係にない場合や、その他のケースは従来通り個別に描画
+                if let (Some(rp), Some(rc)) = (screen_rects.get(&e.parent), screen_rects.get(&e.child)) {
+                    let a = rp.center_bottom();
+                    let b = rc.center_top();
+                    painter.line_segment([a, b], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
                 }
             }
 
