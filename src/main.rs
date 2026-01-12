@@ -24,10 +24,19 @@ struct ParentChild {
     kind: String, // "biological" / "adoptive" 等、今は自由文字列
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Spouse {
+    person1: PersonId,
+    person2: PersonId,
+    memo: String, // 結婚年月日などのメモ
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct FamilyTree {
     persons: HashMap<PersonId, Person>,
     edges: Vec<ParentChild>,
+    #[serde(default)]
+    spouses: Vec<Spouse>,
 }
 
 impl FamilyTree {
@@ -49,6 +58,7 @@ impl FamilyTree {
     fn remove_person(&mut self, id: PersonId) {
         self.persons.remove(&id);
         self.edges.retain(|e| e.parent != id && e.child != id);
+        self.spouses.retain(|s| s.person1 != id && s.person2 != id);
     }
 
     fn add_parent_child(&mut self, parent: PersonId, child: PersonId, kind: String) {
@@ -61,6 +71,21 @@ impl FamilyTree {
             return;
         }
         self.edges.push(ParentChild { parent, child, kind });
+    }
+
+    fn add_spouse(&mut self, person1: PersonId, person2: PersonId, memo: String) {
+        // 重複防止（順序に関わらず同じペアなら追加しない）
+        if self.spouses.iter().any(|s| {
+            (s.person1 == person1 && s.person2 == person2)
+                || (s.person1 == person2 && s.person2 == person1)
+        }) {
+            return;
+        }
+        self.spouses.push(Spouse {
+            person1,
+            person2,
+            memo,
+        });
     }
 
     fn parents_of(&self, child: PersonId) -> Vec<PersonId> {
@@ -118,6 +143,11 @@ struct App {
     child_pick: Option<PersonId>,
     relation_kind: String,
 
+    // 配偶者関係追加フォーム
+    spouse1_pick: Option<PersonId>,
+    spouse2_pick: Option<PersonId>,
+    spouse_memo: String,
+
     // 保存/読込
     file_path: String,
     status: String,
@@ -146,6 +176,10 @@ impl Default for App {
             parent_pick: None,
             child_pick: None,
             relation_kind: "biological".to_string(),
+
+            spouse1_pick: None,
+            spouse2_pick: None,
+            spouse_memo: String::new(),
 
             file_path: "tree.json".to_string(),
             status: String::new(),
@@ -444,6 +478,49 @@ impl eframe::App for App {
             }
 
             ui.separator();
+            ui.label("Add Spouse Relation");
+            
+            egui::ComboBox::from_label("Spouse 1")
+                .selected_text(
+                    self.spouse1_pick
+                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
+                        .unwrap_or_else(|| "(select)".into()),
+                )
+                .show_ui(ui, |ui| {
+                    for id in &all_ids {
+                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                        ui.selectable_value(&mut self.spouse1_pick, Some(*id), name);
+                    }
+                });
+
+            egui::ComboBox::from_label("Spouse 2")
+                .selected_text(
+                    self.spouse2_pick
+                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
+                        .unwrap_or_else(|| "(select)".into()),
+                )
+                .show_ui(ui, |ui| {
+                    for id in &all_ids {
+                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                        ui.selectable_value(&mut self.spouse2_pick, Some(*id), name);
+                    }
+                });
+
+            ui.label("Memo (marriage date...):");
+            ui.text_edit_singleline(&mut self.spouse_memo);
+
+            if ui.button("Add Spouse Relation").clicked() {
+                match (self.spouse1_pick, self.spouse2_pick) {
+                    (Some(s1), Some(s2)) if s1 != s2 => {
+                        self.tree.add_spouse(s1, s2, self.spouse_memo.clone());
+                        self.spouse_memo.clear();
+                        self.status = "Spouse relation added".into();
+                    }
+                    _ => self.status = "Pick two different persons".into(),
+                }
+            }
+
+            ui.separator();
             ui.label("View controls: Drag on canvas to pan, Ctrl+Wheel to zoom");
             ui.label("Drag nodes to manually adjust positions");
             if ui.button("Reset All Positions").clicked() {
@@ -574,6 +651,39 @@ impl eframe::App for App {
                     let a = rp.center_bottom();
                     let b = rc.center_top();
                     painter.line_segment([a, b], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
+                }
+            }
+
+            // 配偶者関係の線描画（二重線）
+            for s in &self.tree.spouses {
+                if let (Some(r1), Some(r2)) = (screen_rects.get(&s.person1), screen_rects.get(&s.person2)) {
+                    let a = r1.center();
+                    let b = r2.center();
+                    
+                    // 二重線を描画（平行な2本の線）
+                    let dir = (b - a).normalized();
+                    let perpendicular = egui::vec2(-dir.y, dir.x) * 2.0; // 垂直方向のオフセット
+                    
+                    painter.line_segment(
+                        [a + perpendicular, b + perpendicular],
+                        egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY),
+                    );
+                    painter.line_segment(
+                        [a - perpendicular, b - perpendicular],
+                        egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY),
+                    );
+                    
+                    // メモがあれば中点に表示
+                    if !s.memo.is_empty() {
+                        let mid = egui::pos2((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
+                        painter.text(
+                            mid,
+                            egui::Align2::CENTER_CENTER,
+                            &s.memo,
+                            egui::FontId::proportional(10.0 * self.zoom.clamp(0.7, 1.2)),
+                            egui::Color32::DARK_GRAY,
+                        );
+                    }
                 }
             }
 
