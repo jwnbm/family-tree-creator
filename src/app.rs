@@ -49,6 +49,9 @@ pub struct App {
     // グリッド
     show_grid: bool,
     grid_size: f32,
+    
+    // 設定ウィンドウ
+    show_settings: bool,
 }
 
 impl Default for App {
@@ -84,6 +87,8 @@ impl Default for App {
             
             show_grid: true,
             grid_size: 50.0,
+            
+            show_settings: false,
         }
     }
 }
@@ -441,23 +446,38 @@ impl eframe::App for App {
             ui.label("Drag nodes to manually adjust positions");
             
             ui.separator();
-            ui.label("Grid Settings:");
-            ui.checkbox(&mut self.show_grid, "Show Grid");
-            ui.horizontal(|ui| {
-                ui.label("Grid Size:");
-                ui.add(egui::DragValue::new(&mut self.grid_size)
-                    .speed(1.0)
-                    .range(10.0..=200.0));
-            });
-            
-            if ui.button("Reset All Positions").clicked() {
-                for person in self.tree.persons.values_mut() {
-                    person.position = None;
-                }
-                self.status = "All positions reset".into();
+            if ui.button("⚙ Settings").clicked() {
+                self.show_settings = !self.show_settings;
             }
             });
         });
+
+        // 設定ウィンドウ
+        egui::Window::new("⚙ Settings")
+            .open(&mut self.show_settings)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.heading("General Settings");
+                ui.separator();
+                
+                ui.label("Grid:");
+                ui.checkbox(&mut self.show_grid, "Show Grid");
+                ui.horizontal(|ui| {
+                    ui.label("Grid Size:");
+                    ui.add(egui::DragValue::new(&mut self.grid_size)
+                        .speed(1.0)
+                        .range(10.0..=200.0));
+                });
+                
+                ui.separator();
+                ui.label("Layout:");
+                if ui.button("Reset All Positions").clicked() {
+                    for person in self.tree.persons.values_mut() {
+                        person.position = None;
+                    }
+                    self.status = "All positions reset".into();
+                }
+            });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let (rect, _response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
