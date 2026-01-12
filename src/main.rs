@@ -13,6 +13,8 @@ struct Person {
     name: String,
     birth: Option<String>, // "YYYY-MM-DD" など
     memo: String,
+    #[serde(default)]
+    manual_offset: Option<(f32, f32)>, // 手動配置のオフセット
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +40,7 @@ impl FamilyTree {
                 name,
                 birth,
                 memo,
+                manual_offset: None,
             },
         );
         id
@@ -124,6 +127,10 @@ struct App {
     pan: egui::Vec2,
     dragging_pan: bool,
     last_pointer_pos: Option<egui::Pos2>,
+    
+    // ノードドラッグ
+    dragging_node: Option<PersonId>,
+    node_drag_start: Option<egui::Pos2>,
 }
 
 impl Default for App {
@@ -147,6 +154,9 @@ impl Default for App {
             pan: egui::Vec2::ZERO,
             dragging_pan: false,
             last_pointer_pos: None,
+            
+            dragging_node: None,
+            node_drag_start: None,
         }
     }
 }
@@ -253,14 +263,20 @@ impl App {
                 for (i, id) in ids.iter().enumerate() {
                     let x = origin.x + (i as f32) * (node_w + x_gap);
                     let y = origin.y + (g as f32) * (node_h + y_gap);
+                    
+                    // 手動オフセットを適用
+                    let (offset_x, offset_y) = self.tree.persons.get(id)
+                        .and_then(|p| p.manual_offset)
+                        .unwrap_or((0.0, 0.0));
+                    
                     let rect = egui::Rect::from_min_size(
-                        egui::pos2(x, y),
+                        egui::pos2(x + offset_x, y + offset_y),
                         egui::vec2(node_w, node_h),
                     );
                     nodes.push(LayoutNode {
                         id: *id,
                         generation: g,
-                        pos: egui::pos2(x, y),
+                        pos: egui::pos2(x + offset_x, y + offset_y),
                         rect,
                     });
                 }
@@ -429,27 +445,20 @@ impl eframe::App for App {
 
             ui.separator();
             ui.label("View controls: Drag on canvas to pan, Ctrl+Wheel to zoom");
+            ui.label("Drag nodes to manually adjust positions");
+            if ui.button("Reset All Positions").clicked() {
+                for person in self.tree.persons.values_mut() {
+                    person.manual_offset = None;
+                }
+                self.status = "All positions reset".into();
+            }
         });
 
         // 中央：キャンバス描画
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::drag());
+            let (rect, _response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
 
-            // パン操作（ドラッグ）
-            if response.drag_started() {
-                self.dragging_pan = true;
-                self.last_pointer_pos = response.interact_pointer_pos();
-            }
-            if self.dragging_pan && response.dragged() {
-                if let (Some(prev), Some(now)) = (self.last_pointer_pos, response.interact_pointer_pos()) {
-                    self.pan += now - prev;
-                    self.last_pointer_pos = Some(now);
-                }
-            }
-            if !response.dragged() && self.dragging_pan {
-                self.dragging_pan = false;
-                self.last_pointer_pos = None;
-            }
+            let pointer_pos = ui.input(|i| i.pointer.interact_pos());
 
             // ズーム（Ctrl + Wheel）
             ctx.input(|i| {
@@ -481,6 +490,84 @@ impl eframe::App for App {
                 screen_rects.insert(n.id, egui::Rect::from_min_max(min, max));
             }
 
+            // ノードのインタラクション判定（ドラッグ優先）
+            let mut node_hovered = false;
+            let mut any_node_dragged = false;
+            
+            for n in &nodes {
+                if let Some(r) = screen_rects.get(&n.id) {
+                    let node_id = ui.id().with(n.id);
+                    let node_response = ui.interact(*r, node_id, egui::Sense::click_and_drag());
+                    
+                    if node_response.hovered() {
+                        node_hovered = true;
+                    }
+                    
+                    // ドラッグ開始
+                    if node_response.drag_started() {
+                        self.dragging_node = Some(n.id);
+                        self.node_drag_start = pointer_pos;
+                    }
+                    
+                    // ドラッグ中
+                    if node_response.dragged() && self.dragging_node == Some(n.id) {
+                        any_node_dragged = true;
+                        if let (Some(pos), Some(start)) = (pointer_pos, self.node_drag_start) {
+                            let delta = (pos - start) / self.zoom;
+                            
+                            if let Some(person) = self.tree.persons.get_mut(&n.id) {
+                                let current_offset = person.manual_offset.unwrap_or((0.0, 0.0));
+                                person.manual_offset = Some((
+                                    current_offset.0 + delta.x,
+                                    current_offset.1 + delta.y,
+                                ));
+                            }
+                            self.node_drag_start = pointer_pos;
+                        }
+                    }
+                    
+                    // ドラッグ終了
+                    if node_response.drag_stopped() && self.dragging_node == Some(n.id) {
+                        self.dragging_node = None;
+                        self.node_drag_start = None;
+                    }
+                    
+                    // クリック
+                    if node_response.clicked() {
+                        self.selected = Some(n.id);
+                    }
+                }
+            }
+            
+            // キャンバスのパン操作（ノードがホバー/ドラッグされていない場合のみ）
+            if !node_hovered && !any_node_dragged && self.dragging_node.is_none() {
+                if let Some(pos) = pointer_pos {
+                    let primary_down = ui.input(|i| i.pointer.primary_down());
+                    let primary_pressed = ui.input(|i| i.pointer.primary_pressed());
+                    
+                    if primary_pressed && rect.contains(pos) {
+                        self.dragging_pan = true;
+                        self.last_pointer_pos = Some(pos);
+                    }
+                    
+                    if self.dragging_pan && primary_down {
+                        if let Some(prev) = self.last_pointer_pos {
+                            self.pan += pos - prev;
+                            self.last_pointer_pos = Some(pos);
+                        }
+                    }
+                    
+                    if !primary_down && self.dragging_pan {
+                        self.dragging_pan = false;
+                        self.last_pointer_pos = None;
+                    }
+                }
+            } else if !any_node_dragged {
+                // ノードがホバー中はキャンバスパンをキャンセル
+                self.dragging_pan = false;
+                self.last_pointer_pos = None;
+            }
+
             // 線描画（親→子）
             for e in &self.tree.edges {
                 if let (Some(rp), Some(rc)) = (screen_rects.get(&e.parent), screen_rects.get(&e.child)) {
@@ -490,11 +577,14 @@ impl eframe::App for App {
                 }
             }
 
-            // ノード描画 + クリックで選択
+            // ノード描画
             for n in &nodes {
                 if let Some(r) = screen_rects.get(&n.id) {
                     let is_sel = self.selected == Some(n.id);
-                    let fill = if is_sel {
+                    let is_dragging = self.dragging_node == Some(n.id);
+                    let fill = if is_dragging {
+                        egui::Color32::from_rgb(255, 220, 180)
+                    } else if is_sel {
                         egui::Color32::from_rgb(200, 230, 255)
                     } else {
                         egui::Color32::from_rgb(245, 245, 245)
@@ -512,13 +602,6 @@ impl eframe::App for App {
                         egui::FontId::proportional(14.0 * self.zoom.clamp(0.7, 1.2)),
                         egui::Color32::BLACK,
                     );
-
-                    // クリック判定
-                    if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                        if r.contains(pos) && ctx.input(|i| i.pointer.any_click()) {
-                            self.selected = Some(n.id);
-                        }
-                    }
                 }
             }
 
