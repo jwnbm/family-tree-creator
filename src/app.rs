@@ -954,16 +954,68 @@ impl eframe::App for App {
                     let label_size = egui::vec2(family_rect.width() * 0.5, 20.0);
                     let label_rect = egui::Rect::from_min_size(label_pos, label_size);
                     
+                    // クリック検出とホバー効果
+                    let resp = ui.interact(label_rect, egui::Id::new(("family_label", family.id)), egui::Sense::click());
+                    
+                    // 背景とボーダーを描画（ボタンのように見せる）
+                    let bg_color = if resp.is_pointer_button_down_on() {
+                        // クリック中
+                        egui::Color32::from_rgba_unmultiplied(
+                            stroke_color.r(), 
+                            stroke_color.g(), 
+                            stroke_color.b(), 
+                            100
+                        )
+                    } else if resp.hovered() {
+                        // ホバー中
+                        egui::Color32::from_rgba_unmultiplied(
+                            stroke_color.r(), 
+                            stroke_color.g(), 
+                            stroke_color.b(), 
+                            60
+                        )
+                    } else {
+                        // 通常
+                        egui::Color32::from_rgba_unmultiplied(
+                            stroke_color.r(), 
+                            stroke_color.g(), 
+                            stroke_color.b(), 
+                            30
+                        )
+                    };
+                    
+                    painter.rect_filled(label_rect, 3.0, bg_color);
+                    
+                    // ホバー時にボーダーを追加
+                    if resp.hovered() || resp.is_pointer_button_down_on() {
+                        painter.rect_stroke(
+                            label_rect,
+                            3.0,
+                            egui::Stroke::new(1.5, stroke_color),
+                            egui::epaint::StrokeKind::Outside
+                        );
+                    }
+                    
+                    // テキストを描画
+                    let text_color = if resp.hovered() || resp.is_pointer_button_down_on() {
+                        stroke_color // ホバー時は濃い色
+                    } else {
+                        egui::Color32::from_rgb(
+                            (stroke_color.r() as f32 * 0.8) as u8,
+                            (stroke_color.g() as f32 * 0.8) as u8,
+                            (stroke_color.b() as f32 * 0.8) as u8,
+                        )
+                    };
+                    
                     painter.text(
-                        label_pos,
-                        egui::Align2::LEFT_TOP,
+                        label_rect.center(),
+                        egui::Align2::CENTER_CENTER,
                         &family.name,
-                        egui::FontId::proportional(12.0 * self.zoom.clamp(0.7, 1.2)),
-                        stroke_color,
+                        egui::FontId::proportional(11.0 * self.zoom.clamp(0.7, 1.2)),
+                        text_color,
                     );
                     
-                    // クリック検出
-                    let resp = ui.interact(label_rect, egui::Id::new(("family_label", family.id)), egui::Sense::click());
+                    // クリック処理
                     if resp.clicked() {
                         self.selected_family = Some(family.id);
                         self.new_family_name = family.name.clone();
