@@ -871,7 +871,7 @@ impl eframe::App for App {
                         }
                     }
                     
-                    // 父母が両方いて、かつ配偶者関係にある場合
+                    // 父母が両方いる場合
                     if let (Some(father), Some(mother)) = (father_id, mother_id) {
                         let are_spouses = self.tree.spouses.iter().any(|s| {
                             (s.person1 == father && s.person2 == mother) ||
@@ -879,7 +879,7 @@ impl eframe::App for App {
                         });
                         
                         if are_spouses {
-                            // 配偶者線の中点から子への線を引く
+                            // 配偶者関係がある場合：配偶者線の中点から子への線を引く
                             if let (Some(rf), Some(rm), Some(rc)) = (
                                 screen_rects.get(&father),
                                 screen_rects.get(&mother),
@@ -895,9 +895,34 @@ impl eframe::App for App {
                                 
                                 painter.line_segment([mid, child_top], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
                             }
-                            processed_children.insert(child_id);
-                            continue;
+                        } else {
+                            // 配偶者関係がない場合：父母を結ぶ線を引き、その中点から子への線を引く
+                            if let (Some(rf), Some(rm), Some(rc)) = (
+                                screen_rects.get(&father),
+                                screen_rects.get(&mother),
+                                screen_rects.get(&child_id)
+                            ) {
+                                let father_center = rf.center();
+                                let mother_center = rm.center();
+                                
+                                // 父母を結ぶ線
+                                painter.line_segment(
+                                    [father_center, mother_center],
+                                    egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY)
+                                );
+                                
+                                // 中点から子への線
+                                let mid = egui::pos2(
+                                    (father_center.x + mother_center.x) / 2.0,
+                                    (father_center.y + mother_center.y) / 2.0
+                                );
+                                let child_top = rc.center_top();
+                                
+                                painter.line_segment([mid, child_top], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
+                            }
                         }
+                        processed_children.insert(child_id);
+                        continue;
                     }
                 }
                 
