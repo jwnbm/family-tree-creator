@@ -939,12 +939,26 @@ impl eframe::App for App {
                 if let Some(r) = screen_rects.get(&n.id) {
                     let is_sel = self.selected == Some(n.id);
                     let is_dragging = self.dragging_node == Some(n.id);
+                    
+                    // 性別に応じた基本色を決定
+                    let gender = self.tree.persons.get(&n.id).map(|p| p.gender).unwrap_or(Gender::Unknown);
+                    let base_color = match gender {
+                        Gender::Male => egui::Color32::from_rgb(173, 216, 230),   // 水色
+                        Gender::Female => egui::Color32::from_rgb(255, 182, 193), // ピンク
+                        Gender::Unknown => egui::Color32::from_rgb(245, 245, 245), // グレー
+                    };
+                    
                     let fill = if is_dragging {
-                        egui::Color32::from_rgb(255, 220, 180)
+                        egui::Color32::from_rgb(255, 220, 180) // ドラッグ中はオレンジ系
                     } else if is_sel {
-                        egui::Color32::from_rgb(200, 230, 255)
+                        // 選択時は基本色を明るくする
+                        match gender {
+                            Gender::Male => egui::Color32::from_rgb(200, 235, 255),
+                            Gender::Female => egui::Color32::from_rgb(255, 220, 230),
+                            Gender::Unknown => egui::Color32::from_rgb(200, 230, 255),
+                        }
                     } else {
-                        egui::Color32::from_rgb(245, 245, 245)
+                        base_color
                     };
 
                     painter.rect_filled(*r, 6.0, fill);
