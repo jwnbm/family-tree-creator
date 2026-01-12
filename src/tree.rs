@@ -27,6 +27,10 @@ pub struct Person {
     pub memo: String,
     #[serde(default)]
     pub manual_offset: Option<(f32, f32)>, // 手動配置のオフセット
+    #[serde(default)]
+    pub deceased: bool, // 死亡フラグ
+    #[serde(default)]
+    pub death: Option<String>, // 死亡年月日 "YYYY-MM-DD" など
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,7 +56,7 @@ pub struct FamilyTree {
 }
 
 impl FamilyTree {
-    pub fn add_person(&mut self, name: String, gender: Gender, birth: Option<String>, memo: String) -> PersonId {
+    pub fn add_person(&mut self, name: String, gender: Gender, birth: Option<String>, memo: String, deceased: bool, death: Option<String>) -> PersonId {
         let id = Uuid::new_v4();
         self.persons.insert(
             id,
@@ -63,6 +67,8 @@ impl FamilyTree {
                 birth,
                 memo,
                 manual_offset: None,
+                deceased,
+                death,
             },
         );
         id
@@ -171,6 +177,8 @@ mod tests {
             Gender::Male,
             Some("2000-01-01".to_string()),
             "Test memo".to_string(),
+            false,
+            None,
         );
 
         assert_eq!(tree.persons.len(), 1);
@@ -179,14 +187,16 @@ mod tests {
         assert_eq!(person.gender, Gender::Male);
         assert_eq!(person.birth, Some("2000-01-01".to_string()));
         assert_eq!(person.memo, "Test memo");
+        assert_eq!(person.deceased, false);
+        assert_eq!(person.death, None);
     }
 
     #[test]
     fn test_remove_person() {
         let mut tree = FamilyTree::default();
-        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
-        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string());
-        let spouse = tree.add_person("Spouse".to_string(), Gender::Male, None, "".to_string());
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string(), false, None);
+        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string(), false, None);
+        let spouse = tree.add_person("Spouse".to_string(), Gender::Male, None, "".to_string(), false, None);
 
         tree.add_parent_child(parent, child, "biological".to_string());
         tree.add_spouse(parent, spouse, "".to_string());
@@ -202,8 +212,8 @@ mod tests {
     #[test]
     fn test_add_parent_child() {
         let mut tree = FamilyTree::default();
-        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
-        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string());
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string(), false, None);
+        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string(), false, None);
 
         tree.add_parent_child(parent, child, "biological".to_string());
         assert_eq!(tree.edges.len(), 1);
@@ -220,8 +230,8 @@ mod tests {
     #[test]
     fn test_remove_parent_child() {
         let mut tree = FamilyTree::default();
-        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
-        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string());
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string(), false, None);
+        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string(), false, None);
 
         tree.add_parent_child(parent, child, "biological".to_string());
         assert_eq!(tree.edges.len(), 1);
@@ -233,8 +243,8 @@ mod tests {
     #[test]
     fn test_add_spouse() {
         let mut tree = FamilyTree::default();
-        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string());
-        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string());
+        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string(), false, None);
+        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string(), false, None);
 
         tree.add_spouse(person1, person2, "1990".to_string());
         assert_eq!(tree.spouses.len(), 1);
@@ -251,8 +261,8 @@ mod tests {
     #[test]
     fn test_remove_spouse() {
         let mut tree = FamilyTree::default();
-        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string());
-        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string());
+        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string(), false, None);
+        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string(), false, None);
 
         tree.add_spouse(person1, person2, "1990".to_string());
         assert_eq!(tree.spouses.len(), 1);
@@ -269,9 +279,9 @@ mod tests {
     #[test]
     fn test_parents_of() {
         let mut tree = FamilyTree::default();
-        let father = tree.add_person("Father".to_string(), Gender::Male, None, "".to_string());
-        let mother = tree.add_person("Mother".to_string(), Gender::Female, None, "".to_string());
-        let child = tree.add_person("Child".to_string(), Gender::Unknown, None, "".to_string());
+        let father = tree.add_person("Father".to_string(), Gender::Male, None, "".to_string(), false, None);
+        let mother = tree.add_person("Mother".to_string(), Gender::Female, None, "".to_string(), false, None);
+        let child = tree.add_person("Child".to_string(), Gender::Unknown, None, "".to_string(), false, None);
 
         tree.add_parent_child(father, child, "biological".to_string());
         tree.add_parent_child(mother, child, "biological".to_string());
@@ -285,9 +295,9 @@ mod tests {
     #[test]
     fn test_children_of() {
         let mut tree = FamilyTree::default();
-        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
-        let child1 = tree.add_person("Child1".to_string(), Gender::Male, None, "".to_string());
-        let child2 = tree.add_person("Child2".to_string(), Gender::Female, None, "".to_string());
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string(), false, None);
+        let child1 = tree.add_person("Child1".to_string(), Gender::Male, None, "".to_string(), false, None);
+        let child2 = tree.add_person("Child2".to_string(), Gender::Female, None, "".to_string(), false, None);
 
         tree.add_parent_child(parent, child1, "biological".to_string());
         tree.add_parent_child(parent, child2, "biological".to_string());
@@ -301,9 +311,9 @@ mod tests {
     #[test]
     fn test_spouses_of() {
         let mut tree = FamilyTree::default();
-        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string());
-        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string());
-        let person3 = tree.add_person("Person3".to_string(), Gender::Female, None, "".to_string());
+        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string(), false, None);
+        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string(), false, None);
+        let person3 = tree.add_person("Person3".to_string(), Gender::Female, None, "".to_string(), false, None);
 
         tree.add_spouse(person1, person2, "1990".to_string());
         tree.add_spouse(person1, person3, "2000".to_string());
@@ -321,10 +331,10 @@ mod tests {
     #[test]
     fn test_roots() {
         let mut tree = FamilyTree::default();
-        let grandparent = tree.add_person("Grandparent".to_string(), Gender::Female, None, "".to_string());
-        let parent = tree.add_person("Parent".to_string(), Gender::Male, None, "".to_string());
-        let child = tree.add_person("Child".to_string(), Gender::Unknown, None, "".to_string());
-        let orphan = tree.add_person("Orphan".to_string(), Gender::Unknown, None, "".to_string());
+        let grandparent = tree.add_person("Grandparent".to_string(), Gender::Female, None, "".to_string(), false, None);
+        let parent = tree.add_person("Parent".to_string(), Gender::Male, None, "".to_string(), false, None);
+        let child = tree.add_person("Child".to_string(), Gender::Unknown, None, "".to_string(), false, None);
+        let orphan = tree.add_person("Orphan".to_string(), Gender::Unknown, None, "".to_string(), false, None);
 
         tree.add_parent_child(grandparent, parent, "biological".to_string());
         tree.add_parent_child(parent, child, "biological".to_string());

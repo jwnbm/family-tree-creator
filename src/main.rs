@@ -24,6 +24,8 @@ struct App {
     new_gender: Gender,
     new_birth: String,
     new_memo: String,
+    new_deceased: bool,
+    new_death: String,
 
     // 親子関係追加フォーム
     parent_pick: Option<PersonId>,
@@ -59,6 +61,8 @@ impl Default for App {
             new_gender: Gender::Unknown,
             new_birth: String::new(),
             new_memo: String::new(),
+            new_deceased: false,
+            new_death: String::new(),
 
             parent_pick: None,
             child_pick: None,
@@ -107,11 +111,11 @@ impl App {
     }
 
     fn add_sample(&mut self) {
-        let a = self.tree.add_person("Grandpa".into(), Gender::Male, Some("1940-01-01".into()), "".into());
-        let b = self.tree.add_person("Grandma".into(), Gender::Female, Some("1942-02-02".into()), "".into());
-        let c = self.tree.add_person("Father".into(), Gender::Male, Some("1968-03-03".into()), "".into());
-        let d = self.tree.add_person("Mother".into(), Gender::Female, Some("1970-04-04".into()), "".into());
-        let e = self.tree.add_person("Me".into(), Gender::Unknown, Some("1995-05-05".into()), "Hello".into());
+        let a = self.tree.add_person("Grandpa".into(), Gender::Male, Some("1940-01-01".into()), "".into(), true, Some("2020-01-01".into()));
+        let b = self.tree.add_person("Grandma".into(), Gender::Female, Some("1942-02-02".into()), "".into(), true, Some("2022-05-15".into()));
+        let c = self.tree.add_person("Father".into(), Gender::Male, Some("1968-03-03".into()), "".into(), false, None);
+        let d = self.tree.add_person("Mother".into(), Gender::Female, Some("1970-04-04".into()), "".into(), false, None);
+        let e = self.tree.add_person("Me".into(), Gender::Unknown, Some("1995-05-05".into()), "Hello".into(), false, None);
 
         // 親子関係
         self.tree.add_parent_child(a, c, "biological".into());
@@ -213,10 +217,29 @@ impl App {
 
     fn person_label(&self, id: PersonId) -> String {
         if let Some(p) = self.tree.persons.get(&id) {
-            match &p.birth {
-                Some(b) if !b.is_empty() => format!("{}\n{}", p.name, b),
-                _ => p.name.clone(),
+            let mut label = p.name.clone();
+            
+            // 誕生日を追加
+            if let Some(b) = &p.birth {
+                if !b.is_empty() {
+                    label.push_str(&format!("\n{}", b));
+                }
             }
+            
+            // 死亡している場合は命日を追加
+            if p.deceased {
+                if let Some(d) = &p.death {
+                    if !d.is_empty() {
+                        label.push_str(&format!("\n† {}", d));
+                    } else {
+                        label.push_str("\n†");
+                    }
+                } else {
+                    label.push_str("\n†");
+                }
+            }
+            
+            label
         } else {
             "Unknown".into()
         }
@@ -262,23 +285,38 @@ impl eframe::App for App {
             });
             ui.label("Birth (YYYY-MM-DD, optional):");
             ui.text_edit_singleline(&mut self.new_birth);
+            ui.checkbox(&mut self.new_deceased, "Deceased");
+            if self.new_deceased {
+                ui.label("Death (YYYY-MM-DD, optional):");
+                ui.text_edit_singleline(&mut self.new_death);
+            }
             ui.label("Memo:");
             ui.text_edit_multiline(&mut self.new_memo);
             if ui.button("Add").clicked() {
                 if !self.new_name.trim().is_empty() {
                     let birth = self.new_birth.trim();
                     let birth = (!birth.is_empty()).then(|| birth.to_string());
+                    let death = if self.new_deceased {
+                        let death_str = self.new_death.trim();
+                        (!death_str.is_empty()).then(|| death_str.to_string())
+                    } else {
+                        None
+                    };
                     let id = self.tree.add_person(
                         self.new_name.trim().to_string(),
                         self.new_gender,
                         birth,
                         self.new_memo.clone(),
+                        self.new_deceased,
+                        death,
                     );
                     self.selected = Some(id);
                     self.new_name.clear();
                     self.new_gender = Gender::Unknown;
                     self.new_birth.clear();
                     self.new_memo.clear();
+                    self.new_deceased = false;
+                    self.new_death.clear();
                 } else {
                     self.status = "Name is required".into();
                 }
@@ -323,6 +361,17 @@ impl eframe::App for App {
                             p.birth = (!b.is_empty()).then_some(b);
                         }
                     });
+                    ui.checkbox(&mut p.deceased, "Deceased");
+                    if p.deceased {
+                        ui.horizontal(|ui| {
+                            ui.label("Death:");
+                            let mut d = p.death.clone().unwrap_or_default();
+                            if ui.text_edit_singleline(&mut d).changed() {
+                                let d = d.trim().to_string();
+                                p.death = (!d.is_empty()).then_some(d);
+                            }
+                        });
+                    }
                     ui.label("Memo:");
                     ui.text_edit_multiline(&mut p.memo);
 
