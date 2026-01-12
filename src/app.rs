@@ -5,6 +5,12 @@ use eframe::egui;
 use crate::tree::{FamilyTree, Gender, PersonId};
 use crate::layout::LayoutEngine;
 
+// 定数
+const DEFAULT_RELATION_KIND: &str = "biological";
+const NODE_CORNER_RADIUS: f32 = 6.0;
+const EDGE_STROKE_WIDTH: f32 = 1.5;
+const SPOUSE_LINE_OFFSET: f32 = 2.0;
+
 pub struct App {
     tree: FamilyTree,
     selected: Option<PersonId>,
@@ -60,7 +66,7 @@ impl Default for App {
 
             parent_pick: None,
             child_pick: None,
-            relation_kind: "biological".to_string(),
+            relation_kind: DEFAULT_RELATION_KIND.to_string(),
 
             spouse1_pick: None,
             spouse_memo: String::new(),
@@ -114,22 +120,61 @@ impl App {
         let d = self.tree.add_person("Mother".into(), Gender::Female, Some("1970-04-04".into()), "".into(), false, None);
         let e = self.tree.add_person("Me".into(), Gender::Unknown, Some("1995-05-05".into()), "Hello".into(), false, None);
 
-        // 親子関係
-        self.tree.add_parent_child(a, c, "biological".into());
-        self.tree.add_parent_child(b, c, "biological".into());
-        self.tree.add_parent_child(c, e, "biological".into());
-        self.tree.add_parent_child(d, e, "biological".into());
-
-        // 配偶者関係
+        self.tree.add_parent_child(a, c, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(b, c, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(c, e, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(d, e, DEFAULT_RELATION_KIND.into());
         self.tree.add_spouse(a, b, "1965".into());
         self.tree.add_spouse(c, d, "1994".into());
 
         self.status = "Added sample data".into();
     }
 
+    fn clear_person_form(&mut self) {
+        self.new_name.clear();
+        self.new_gender = Gender::Unknown;
+        self.new_birth.clear();
+        self.new_memo.clear();
+        self.new_deceased = false;
+        self.new_death.clear();
+    }
 
+    fn parse_optional_field(s: &str) -> Option<String> {
+        let trimmed = s.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    }
 
+    fn get_person_name(&self, id: &PersonId) -> String {
+        self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_else(|| "?".into())
+    }
 
+    fn show_relation_buttons(
+        &mut self,
+        ui: &mut egui::Ui,
+        label: &str,
+        relations: &[(PersonId, String)],
+        current_id: PersonId,
+        is_parent: bool,
+    ) {
+        if !relations.is_empty() {
+            ui.horizontal(|ui| {
+                ui.label(label);
+                for (id, name) in relations {
+                    if ui.small_button(name).clicked() {
+                        self.selected = Some(*id);
+                    }
+                    if ui.small_button("❌").on_hover_text("Remove relation").clicked() {
+                        if is_parent {
+                            self.tree.remove_parent_child(*id, current_id);
+                        } else {
+                            self.tree.remove_spouse(current_id, *id);
+                        }
+                        self.status = "Relation removed".into();
+                    }
+                }
+            });
+        }
+    }
 }
 
 impl eframe::App for App {
@@ -178,14 +223,8 @@ impl eframe::App for App {
             ui.text_edit_multiline(&mut self.new_memo);
             if ui.button("Add").clicked() {
                 if !self.new_name.trim().is_empty() {
-                    let birth = self.new_birth.trim();
-                    let birth = (!birth.is_empty()).then(|| birth.to_string());
-                    let death = if self.new_deceased {
-                        let death_str = self.new_death.trim();
-                        (!death_str.is_empty()).then(|| death_str.to_string())
-                    } else {
-                        None
-                    };
+                    let birth = Self::parse_optional_field(&self.new_birth);
+                    let death = self.new_deceased.then(|| Self::parse_optional_field(&self.new_death)).flatten();
                     let id = self.tree.add_person(
                         self.new_name.trim().to_string(),
                         self.new_gender,
@@ -195,12 +234,7 @@ impl eframe::App for App {
                         death,
                     );
                     self.selected = Some(id);
-                    self.new_name.clear();
-                    self.new_gender = Gender::Unknown;
-                    self.new_birth.clear();
-                    self.new_memo.clear();
-                    self.new_deceased = false;
-                    self.new_death.clear();
+                    self.clear_person_form();
                 } else {
                     self.status = "Name is required".into();
                 }
@@ -258,7 +292,6 @@ impl eframe::App for App {
                     ui.text_edit_multiline(&mut p.memo);
 
                     ui.separator();
-                    
                     ui.label("Relations:");
                     
                     let parents = self.tree.parents_of(sel);
@@ -276,68 +309,15 @@ impl eframe::App for App {
                         }
                     }
                     
-                    if !fathers.is_empty() {
-                        ui.horizontal(|ui| {
-                            ui.label("Father:");
-                            for (id, name) in &fathers {
-                                if ui.small_button(name).clicked() {
-                                    self.selected = Some(*id);
-                                }
-                                if ui.small_button("❌").on_hover_text("Remove parent relation").clicked() {
-                                    self.tree.remove_parent_child(*id, sel);
-                                    self.status = "Parent relation removed".into();
-                                }
-                            }
-                        });
-                    }
+                    self.show_relation_buttons(ui, "Father:", &fathers, sel, true);
+                    self.show_relation_buttons(ui, "Mother:", &mothers, sel, true);
+                    self.show_relation_buttons(ui, "Parent:", &other_parents, sel, true);
                     
-                    if !mothers.is_empty() {
-                        ui.horizontal(|ui| {
-                            ui.label("Mother:");
-                            for (id, name) in &mothers {
-                                if ui.small_button(name).clicked() {
-                                    self.selected = Some(*id);
-                                }
-                                if ui.small_button("❌").on_hover_text("Remove parent relation").clicked() {
-                                    self.tree.remove_parent_child(*id, sel);
-                                    self.status = "Parent relation removed".into();
-                                }
-                            }
-                        });
-                    }
-                    
-                    if !other_parents.is_empty() {
-                        ui.horizontal(|ui| {
-                            ui.label("Parent:");
-                            for (id, name) in &other_parents {
-                                if ui.small_button(name).clicked() {
-                                    self.selected = Some(*id);
-                                }
-                                if ui.small_button("❌").on_hover_text("Remove parent relation").clicked() {
-                                    self.tree.remove_parent_child(*id, sel);
-                                    self.status = "Parent relation removed".into();
-                                }
-                            }
-                        });
-                    }
-                    
-                    let spouses = self.tree.spouses_of(sel);
-                    if !spouses.is_empty() {
-                        ui.horizontal(|ui| {
-                            ui.label("Spouses:");
-                            for spouse_id in &spouses {
-                                if let Some(spouse) = self.tree.persons.get(spouse_id) {
-                                    if ui.small_button(&spouse.name).clicked() {
-                                        self.selected = Some(*spouse_id);
-                                    }
-                                    if ui.small_button("❌").on_hover_text("Remove spouse relation").clicked() {
-                                        self.tree.remove_spouse(sel, *spouse_id);
-                                        self.status = "Spouse relation removed".into();
-                                    }
-                                }
-                            }
-                        });
-                    }
+                    let spouses: Vec<_> = self.tree.spouses_of(sel)
+                        .into_iter()
+                        .filter_map(|id| self.tree.persons.get(&id).map(|p| (id, p.name.clone())))
+                        .collect();
+                    self.show_relation_buttons(ui, "Spouses:", &spouses, sel, false);
 
                     ui.separator();
                     ui.label("Add Relations:");
@@ -353,7 +333,7 @@ impl eframe::App for App {
                             .show_ui(ui, |ui| {
                                 for id in &all_ids {
                                     if *id != sel {
-                                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                                        let name = self.get_person_name(id);
                                         ui.selectable_value(&mut self.parent_pick, Some(*id), name);
                                     }
                                 }
@@ -364,9 +344,12 @@ impl eframe::App for App {
                         ui.text_edit_singleline(&mut self.relation_kind);
                         if ui.button("Add").clicked() {
                             if let Some(parent) = self.parent_pick {
-                                let k = self.relation_kind.trim();
-                                let k = if k.is_empty() { "biological" } else { k };
-                                self.tree.add_parent_child(parent, sel, k.to_string());
+                                let kind = if self.relation_kind.trim().is_empty() {
+                                    DEFAULT_RELATION_KIND
+                                } else {
+                                    self.relation_kind.trim()
+                                };
+                                self.tree.add_parent_child(parent, sel, kind.to_string());
                                 self.parent_pick = None;
                                 self.status = "Parent added".into();
                             }
@@ -386,7 +369,7 @@ impl eframe::App for App {
                             .show_ui(ui, |ui| {
                                 for id in &all_ids {
                                     if *id != sel {
-                                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                                        let name = self.get_person_name(id);
                                         ui.selectable_value(&mut self.child_pick, Some(*id), name);
                                     }
                                 }
@@ -397,9 +380,12 @@ impl eframe::App for App {
                         ui.text_edit_singleline(&mut self.relation_kind);
                         if ui.button("Add").clicked() {
                             if let Some(child) = self.child_pick {
-                                let k = self.relation_kind.trim();
-                                let k = if k.is_empty() { "biological" } else { k };
-                                self.tree.add_parent_child(sel, child, k.to_string());
+                                let kind = if self.relation_kind.trim().is_empty() {
+                                    DEFAULT_RELATION_KIND
+                                } else {
+                                    self.relation_kind.trim()
+                                };
+                                self.tree.add_parent_child(sel, child, kind.to_string());
                                 self.child_pick = None;
                                 self.status = "Child added".into();
                             }
@@ -419,7 +405,7 @@ impl eframe::App for App {
                             .show_ui(ui, |ui| {
                                 for id in &all_ids {
                                     if *id != sel {
-                                        let name = self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or("?".into());
+                                        let name = self.get_person_name(id);
                                         ui.selectable_value(&mut self.spouse1_pick, Some(*id), name);
                                     }
                                 }
@@ -602,15 +588,15 @@ impl eframe::App for App {
                     let b = r2.center();
                     
                     let dir = (b - a).normalized();
-                    let perpendicular = egui::vec2(-dir.y, dir.x) * 2.0;
+                    let perpendicular = egui::vec2(-dir.y, dir.x) * SPOUSE_LINE_OFFSET;
                     
                     painter.line_segment(
                         [a + perpendicular, b + perpendicular],
-                        egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY),
+                        egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
                     );
                     painter.line_segment(
                         [a - perpendicular, b - perpendicular],
-                        egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY),
+                        egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
                     );
                     
                     if !s.memo.is_empty() {
@@ -675,7 +661,7 @@ impl eframe::App for App {
                                 );
                                 let child_top = rc.center_top();
                                 
-                                painter.line_segment([mid, child_top], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
+                                painter.line_segment([mid, child_top], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
                             }
                         } else {
                             if let (Some(rf), Some(rm), Some(rc)) = (
@@ -688,7 +674,7 @@ impl eframe::App for App {
                                 
                                 painter.line_segment(
                                     [father_center, mother_center],
-                                    egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY)
+                                    egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY)
                                 );
                                 
                                 let mid = egui::pos2(
@@ -697,7 +683,7 @@ impl eframe::App for App {
                                 );
                                 let child_top = rc.center_top();
                                 
-                                painter.line_segment([mid, child_top], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
+                                painter.line_segment([mid, child_top], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
                             }
                         }
                         processed_children.insert(child_id);
@@ -708,7 +694,7 @@ impl eframe::App for App {
                 if let (Some(rp), Some(rc)) = (screen_rects.get(&e.parent), screen_rects.get(&e.child)) {
                     let a = rp.center_bottom();
                     let b = rc.center_top();
-                    painter.line_segment([a, b], egui::Stroke::new(1.5, egui::Color32::LIGHT_GRAY));
+                    painter.line_segment([a, b], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
                 }
             }
 
@@ -736,8 +722,8 @@ impl eframe::App for App {
                         base_color
                     };
 
-                    painter.rect_filled(*r, 6.0, fill);
-                    painter.rect_stroke(*r, 6.0, egui::Stroke::new(1.0, egui::Color32::GRAY), egui::epaint::StrokeKind::Outside);
+                    painter.rect_filled(*r, NODE_CORNER_RADIUS, fill);
+                    painter.rect_stroke(*r, NODE_CORNER_RADIUS, egui::Stroke::new(1.0, egui::Color32::GRAY), egui::epaint::StrokeKind::Outside);
 
                     let text = LayoutEngine::person_label(&self.tree, n.id);
                     painter.text(
