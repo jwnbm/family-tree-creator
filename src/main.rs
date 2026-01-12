@@ -1,4 +1,5 @@
 mod tree;
+mod layout;
 mod app;
 
 use app::App;
