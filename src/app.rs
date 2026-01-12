@@ -16,6 +16,7 @@ const SPOUSE_LINE_OFFSET: f32 = 2.0;
 enum SideTab {
     Persons,
     Families,
+    Settings,
 }
 
 pub struct App {
@@ -56,9 +57,6 @@ pub struct App {
     // グリッド
     show_grid: bool,
     grid_size: f32,
-    
-    // 設定ウィンドウ
-    show_settings: bool,
     
     // サイドパネルタブ
     side_tab: SideTab,
@@ -103,8 +101,6 @@ impl Default for App {
             
             show_grid: true,
             grid_size: 50.0,
-            
-            show_settings: false,
             
             side_tab: SideTab::Persons,
             
@@ -215,6 +211,7 @@ impl eframe::App for App {
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut self.side_tab, SideTab::Persons, "👤 Persons");
                     ui.selectable_value(&mut self.side_tab, SideTab::Families, "👪 Families");
+                    ui.selectable_value(&mut self.side_tab, SideTab::Settings, "⚙ Settings");
                 });
                 ui.separator();
 
@@ -478,11 +475,6 @@ impl eframe::App for App {
                         ui.separator();
                         ui.label("View controls: Drag on canvas to pan, Ctrl+Wheel to zoom");
                         ui.label("Drag nodes to manually adjust positions");
-            
-                        ui.separator();
-                        if ui.button("⚙ Settings").clicked() {
-                            self.show_settings = !self.show_settings;
-                        }
                     }
 
                     SideTab::Families => {
@@ -622,36 +614,33 @@ impl eframe::App for App {
                             });
                         }
                     }
+
+                    SideTab::Settings => {
+                        // 設定タブ
+                        ui.heading("Settings");
+                        ui.separator();
+                        
+                        ui.label("Grid:");
+                        ui.checkbox(&mut self.show_grid, "Show Grid");
+                        ui.horizontal(|ui| {
+                            ui.label("Grid Size:");
+                            ui.add(egui::DragValue::new(&mut self.grid_size)
+                                .speed(1.0)
+                                .range(10.0..=200.0));
+                        });
+                        
+                        ui.separator();
+                        ui.label("Layout:");
+                        if ui.button("Reset All Positions").clicked() {
+                            for person in self.tree.persons.values_mut() {
+                                person.position = None;
+                            }
+                            self.status = "All positions reset".into();
+                        }
+                    }
                 }
             });
         });
-
-        // 設定ウィンドウ
-        egui::Window::new("⚙ Settings")
-            .open(&mut self.show_settings)
-            .resizable(false)
-            .show(ctx, |ui| {
-                ui.heading("General Settings");
-                ui.separator();
-                
-                ui.label("Grid:");
-                ui.checkbox(&mut self.show_grid, "Show Grid");
-                ui.horizontal(|ui| {
-                    ui.label("Grid Size:");
-                    ui.add(egui::DragValue::new(&mut self.grid_size)
-                        .speed(1.0)
-                        .range(10.0..=200.0));
-                });
-                
-                ui.separator();
-                ui.label("Layout:");
-                if ui.button("Reset All Positions").clicked() {
-                    for person in self.tree.persons.values_mut() {
-                        person.position = None;
-                    }
-                    self.status = "All positions reset".into();
-                }
-            });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let (rect, _response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
