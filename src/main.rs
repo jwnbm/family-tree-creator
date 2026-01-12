@@ -104,6 +104,17 @@ impl FamilyTree {
         });
     }
 
+    fn remove_parent_child(&mut self, parent: PersonId, child: PersonId) {
+        self.edges.retain(|e| !(e.parent == parent && e.child == child));
+    }
+
+    fn remove_spouse(&mut self, person1: PersonId, person2: PersonId) {
+        self.spouses.retain(|s| {
+            !((s.person1 == person1 && s.person2 == person2)
+                || (s.person1 == person2 && s.person2 == person1))
+        });
+    }
+
     fn parents_of(&self, child: PersonId) -> Vec<PersonId> {
         self.edges
             .iter()
@@ -498,6 +509,10 @@ impl eframe::App for App {
                                 if ui.small_button(name).clicked() {
                                     self.selected = Some(*id);
                                 }
+                                if ui.small_button("❌").on_hover_text("Remove parent relation").clicked() {
+                                    self.tree.remove_parent_child(*id, sel);
+                                    self.status = "Parent relation removed".into();
+                                }
                             }
                         });
                     }
@@ -509,6 +524,10 @@ impl eframe::App for App {
                                 if ui.small_button(name).clicked() {
                                     self.selected = Some(*id);
                                 }
+                                if ui.small_button("❌").on_hover_text("Remove parent relation").clicked() {
+                                    self.tree.remove_parent_child(*id, sel);
+                                    self.status = "Parent relation removed".into();
+                                }
                             }
                         });
                     }
@@ -519,6 +538,10 @@ impl eframe::App for App {
                             for (id, name) in &other_parents {
                                 if ui.small_button(name).clicked() {
                                     self.selected = Some(*id);
+                                }
+                                if ui.small_button("❌").on_hover_text("Remove parent relation").clicked() {
+                                    self.tree.remove_parent_child(*id, sel);
+                                    self.status = "Parent relation removed".into();
                                 }
                             }
                         });
@@ -533,6 +556,10 @@ impl eframe::App for App {
                                 if let Some(spouse) = self.tree.persons.get(spouse_id) {
                                     if ui.small_button(&spouse.name).clicked() {
                                         self.selected = Some(*spouse_id);
+                                    }
+                                    if ui.small_button("❌").on_hover_text("Remove spouse relation").clicked() {
+                                        self.tree.remove_spouse(sel, *spouse_id);
+                                        self.status = "Spouse relation removed".into();
                                     }
                                 }
                             }
