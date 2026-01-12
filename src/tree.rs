@@ -26,7 +26,7 @@ pub struct Person {
     pub birth: Option<String>, // "YYYY-MM-DD" など
     pub memo: String,
     #[serde(default)]
-    pub manual_offset: Option<(f32, f32)>, // 手動配置のオフセット
+    pub position: Option<(f32, f32)>, // 手動配置の座標（左上）
     #[serde(default)]
     pub deceased: bool, // 死亡フラグ
     #[serde(default)]
@@ -66,7 +66,7 @@ impl FamilyTree {
                 gender,
                 birth,
                 memo,
-                manual_offset: None,
+                position: None,
                 deceased,
                 death,
             },

@@ -49,6 +49,10 @@ struct App {
     // ノードドラッグ
     dragging_node: Option<PersonId>,
     node_drag_start: Option<egui::Pos2>,
+    
+    // グリッド
+    show_grid: bool,
+    grid_size: f32,
 }
 
 impl Default for App {
@@ -81,6 +85,9 @@ impl Default for App {
             
             dragging_node: None,
             node_drag_start: None,
+            
+            show_grid: true,
+            grid_size: 50.0,
         }
     }
 }
@@ -179,9 +186,9 @@ impl App {
         }
 
         let node_w = 140.0;
-        let node_h = 48.0;
-        let x_gap = 28.0;
-        let y_gap = 64.0;
+        let node_h = 50.0;  // グリッドに合わせて調整
+        let x_gap = 50.0;   // グリッドサイズの倍数に
+        let y_gap = 50.0;   // グリッドサイズの倍数に
 
         let mut nodes = Vec::new();
         let mut gens: Vec<usize> = by_gen.keys().copied().collect();
@@ -190,22 +197,31 @@ impl App {
         for g in gens {
             if let Some(ids) = by_gen.get(&g) {
                 for (i, id) in ids.iter().enumerate() {
-                    let x = origin.x + (i as f32) * (node_w + x_gap);
-                    let y = origin.y + (g as f32) * (node_h + y_gap);
-                    
-                    // 手動オフセットを適用
-                    let (offset_x, offset_y) = self.tree.persons.get(id)
-                        .and_then(|p| p.manual_offset)
-                        .unwrap_or((0.0, 0.0));
+                    // 手動配置があればそれを使用、なければ自動レイアウト
+                    let (x, y) = if let Some(person) = self.tree.persons.get(id) {
+                        if let Some((px, py)) = person.position {
+                            (px, py)
+                        } else {
+                            // 自動レイアウト
+                            let auto_x = origin.x + (i as f32) * (node_w + x_gap);
+                            let auto_y = origin.y + (g as f32) * (node_h + y_gap);
+                            (auto_x, auto_y)
+                        }
+                    } else {
+                        // フォールバック
+                        let auto_x = origin.x + (i as f32) * (node_w + x_gap);
+                        let auto_y = origin.y + (g as f32) * (node_h + y_gap);
+                        (auto_x, auto_y)
+                    };
                     
                     let rect = egui::Rect::from_min_size(
-                        egui::pos2(x + offset_x, y + offset_y),
+                        egui::pos2(x, y),
                         egui::vec2(node_w, node_h),
                     );
                     nodes.push(LayoutNode {
                         id: *id,
                         generation: g,
-                        pos: egui::pos2(x + offset_x, y + offset_y),
+                        pos: egui::pos2(x, y),
                         rect,
                     });
                 }
@@ -266,6 +282,37 @@ impl App {
             label
         } else {
             "Unknown".into()
+        }
+    }
+    
+    fn draw_grid(&self, painter: &egui::Painter, rect: egui::Rect, origin: egui::Pos2) {
+        let grid_size = self.grid_size * self.zoom;
+        
+        // グリッドの原点（origin + pan）
+        let grid_origin = origin + self.pan;
+        
+        // グリッド線の描画範囲を計算
+        let start_x = ((rect.left() - grid_origin.x) / grid_size).floor() * grid_size + grid_origin.x;
+        let start_y = ((rect.top() - grid_origin.y) / grid_size).floor() * grid_size + grid_origin.y;
+        
+        // 縦線
+        let mut x = start_x;
+        while x <= rect.right() {
+            painter.line_segment(
+                [egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())],
+                egui::Stroke::new(0.5, egui::Color32::from_gray(200)),
+            );
+            x += grid_size;
+        }
+        
+        // 横線
+        let mut y = start_y;
+        while y <= rect.bottom() {
+            painter.line_segment(
+                [egui::pos2(rect.left(), y), egui::pos2(rect.right(), y)],
+                egui::Stroke::new(0.5, egui::Color32::from_gray(200)),
+            );
+            y += grid_size;
         }
     }
 }
@@ -601,9 +648,20 @@ impl eframe::App for App {
             ui.separator();
             ui.label("View controls: Drag on canvas to pan, Ctrl+Wheel to zoom");
             ui.label("Drag nodes to manually adjust positions");
+            
+            ui.separator();
+            ui.label("Grid Settings:");
+            ui.checkbox(&mut self.show_grid, "Show Grid");
+            ui.horizontal(|ui| {
+                ui.label("Grid Size:");
+                ui.add(egui::DragValue::new(&mut self.grid_size)
+                    .speed(1.0)
+                    .range(10.0..=200.0));
+            });
+            
             if ui.button("Reset All Positions").clicked() {
                 for person in self.tree.persons.values_mut() {
-                    person.manual_offset = None;
+                    person.position = None;
                 }
                 self.status = "All positions reset".into();
             }
@@ -633,7 +691,21 @@ impl eframe::App for App {
                 origin + v + pan
             };
 
-            let origin = rect.left_top() + egui::vec2(24.0, 24.0);
+            // originをグリッドに揃える
+            let base_origin = rect.left_top() + egui::vec2(24.0, 24.0);
+            let origin = if self.show_grid {
+                egui::pos2(
+                    (base_origin.x / self.grid_size).round() * self.grid_size,
+                    (base_origin.y / self.grid_size).round() * self.grid_size,
+                )
+            } else {
+                base_origin
+            };
+            
+            // グリッド描画
+            if self.show_grid {
+                self.draw_grid(&painter, rect, origin);
+            }
 
             // レイアウト（ワールド座標）
             let nodes = self.compute_layout(origin);
@@ -672,18 +744,37 @@ impl eframe::App for App {
                             let delta = (pos - start) / self.zoom;
                             
                             if let Some(person) = self.tree.persons.get_mut(&n.id) {
-                                let current_offset = person.manual_offset.unwrap_or((0.0, 0.0));
-                                person.manual_offset = Some((
-                                    current_offset.0 + delta.x,
-                                    current_offset.1 + delta.y,
-                                ));
+                                // 現在の位置を取得（ノードの左上座標）
+                                let current_pos = person.position.unwrap_or((n.rect.left(), n.rect.top()));
+                                let new_x = current_pos.0 + delta.x;
+                                let new_y = current_pos.1 + delta.y;
+                                
+                                // ドラッグ中は自由に動かす（スナップなし）
+                                person.position = Some((new_x, new_y));
                             }
                             self.node_drag_start = pointer_pos;
                         }
                     }
                     
-                    // ドラッグ終了
+                    // ドラッグ終了時にグリッドスナップ
                     if node_response.drag_stopped() && self.dragging_node == Some(n.id) {
+                        if self.show_grid {
+                            if let Some(person) = self.tree.persons.get_mut(&n.id) {
+                                if let Some((x, y)) = person.position {
+                                    // グリッドの原点（origin）を基準にスナップ
+                                    let relative_x = x - origin.x;
+                                    let relative_y = y - origin.y;
+                                    
+                                    let snapped_rel_x = (relative_x / self.grid_size).round() * self.grid_size;
+                                    let snapped_rel_y = (relative_y / self.grid_size).round() * self.grid_size;
+                                    
+                                    let snapped_x = origin.x + snapped_rel_x;
+                                    let snapped_y = origin.y + snapped_rel_y;
+                                    
+                                    person.position = Some((snapped_x, snapped_y));
+                                }
+                            }
+                        }
                         self.dragging_node = None;
                         self.node_drag_start = None;
                     }
