@@ -158,3 +158,182 @@ impl FamilyTree {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_person() {
+        let mut tree = FamilyTree::default();
+        let id = tree.add_person(
+            "Test Person".to_string(),
+            Gender::Male,
+            Some("2000-01-01".to_string()),
+            "Test memo".to_string(),
+        );
+
+        assert_eq!(tree.persons.len(), 1);
+        let person = tree.persons.get(&id).unwrap();
+        assert_eq!(person.name, "Test Person");
+        assert_eq!(person.gender, Gender::Male);
+        assert_eq!(person.birth, Some("2000-01-01".to_string()));
+        assert_eq!(person.memo, "Test memo");
+    }
+
+    #[test]
+    fn test_remove_person() {
+        let mut tree = FamilyTree::default();
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
+        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string());
+        let spouse = tree.add_person("Spouse".to_string(), Gender::Male, None, "".to_string());
+
+        tree.add_parent_child(parent, child, "biological".to_string());
+        tree.add_spouse(parent, spouse, "".to_string());
+
+        tree.remove_person(parent);
+
+        assert_eq!(tree.persons.len(), 2);
+        assert!(tree.persons.get(&parent).is_none());
+        assert_eq!(tree.edges.len(), 0);
+        assert_eq!(tree.spouses.len(), 0);
+    }
+
+    #[test]
+    fn test_add_parent_child() {
+        let mut tree = FamilyTree::default();
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
+        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string());
+
+        tree.add_parent_child(parent, child, "biological".to_string());
+        assert_eq!(tree.edges.len(), 1);
+
+        // 重複追加は無視される
+        tree.add_parent_child(parent, child, "biological".to_string());
+        assert_eq!(tree.edges.len(), 1);
+
+        // 異なるkindなら追加される
+        tree.add_parent_child(parent, child, "adoptive".to_string());
+        assert_eq!(tree.edges.len(), 2);
+    }
+
+    #[test]
+    fn test_remove_parent_child() {
+        let mut tree = FamilyTree::default();
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
+        let child = tree.add_person("Child".to_string(), Gender::Male, None, "".to_string());
+
+        tree.add_parent_child(parent, child, "biological".to_string());
+        assert_eq!(tree.edges.len(), 1);
+
+        tree.remove_parent_child(parent, child);
+        assert_eq!(tree.edges.len(), 0);
+    }
+
+    #[test]
+    fn test_add_spouse() {
+        let mut tree = FamilyTree::default();
+        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string());
+        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string());
+
+        tree.add_spouse(person1, person2, "1990".to_string());
+        assert_eq!(tree.spouses.len(), 1);
+
+        // 重複追加は無視される
+        tree.add_spouse(person1, person2, "1990".to_string());
+        assert_eq!(tree.spouses.len(), 1);
+
+        // 順序を入れ替えても重複と見なされる
+        tree.add_spouse(person2, person1, "1990".to_string());
+        assert_eq!(tree.spouses.len(), 1);
+    }
+
+    #[test]
+    fn test_remove_spouse() {
+        let mut tree = FamilyTree::default();
+        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string());
+        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string());
+
+        tree.add_spouse(person1, person2, "1990".to_string());
+        assert_eq!(tree.spouses.len(), 1);
+
+        tree.remove_spouse(person1, person2);
+        assert_eq!(tree.spouses.len(), 0);
+
+        // 再度追加して順序を逆にして削除
+        tree.add_spouse(person1, person2, "1990".to_string());
+        tree.remove_spouse(person2, person1);
+        assert_eq!(tree.spouses.len(), 0);
+    }
+
+    #[test]
+    fn test_parents_of() {
+        let mut tree = FamilyTree::default();
+        let father = tree.add_person("Father".to_string(), Gender::Male, None, "".to_string());
+        let mother = tree.add_person("Mother".to_string(), Gender::Female, None, "".to_string());
+        let child = tree.add_person("Child".to_string(), Gender::Unknown, None, "".to_string());
+
+        tree.add_parent_child(father, child, "biological".to_string());
+        tree.add_parent_child(mother, child, "biological".to_string());
+
+        let parents = tree.parents_of(child);
+        assert_eq!(parents.len(), 2);
+        assert!(parents.contains(&father));
+        assert!(parents.contains(&mother));
+    }
+
+    #[test]
+    fn test_children_of() {
+        let mut tree = FamilyTree::default();
+        let parent = tree.add_person("Parent".to_string(), Gender::Female, None, "".to_string());
+        let child1 = tree.add_person("Child1".to_string(), Gender::Male, None, "".to_string());
+        let child2 = tree.add_person("Child2".to_string(), Gender::Female, None, "".to_string());
+
+        tree.add_parent_child(parent, child1, "biological".to_string());
+        tree.add_parent_child(parent, child2, "biological".to_string());
+
+        let children = tree.children_of(parent);
+        assert_eq!(children.len(), 2);
+        assert!(children.contains(&child1));
+        assert!(children.contains(&child2));
+    }
+
+    #[test]
+    fn test_spouses_of() {
+        let mut tree = FamilyTree::default();
+        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string());
+        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string());
+        let person3 = tree.add_person("Person3".to_string(), Gender::Female, None, "".to_string());
+
+        tree.add_spouse(person1, person2, "1990".to_string());
+        tree.add_spouse(person1, person3, "2000".to_string());
+
+        let spouses = tree.spouses_of(person1);
+        assert_eq!(spouses.len(), 2);
+        assert!(spouses.contains(&person2));
+        assert!(spouses.contains(&person3));
+
+        let spouses2 = tree.spouses_of(person2);
+        assert_eq!(spouses2.len(), 1);
+        assert!(spouses2.contains(&person1));
+    }
+
+    #[test]
+    fn test_roots() {
+        let mut tree = FamilyTree::default();
+        let grandparent = tree.add_person("Grandparent".to_string(), Gender::Female, None, "".to_string());
+        let parent = tree.add_person("Parent".to_string(), Gender::Male, None, "".to_string());
+        let child = tree.add_person("Child".to_string(), Gender::Unknown, None, "".to_string());
+        let orphan = tree.add_person("Orphan".to_string(), Gender::Unknown, None, "".to_string());
+
+        tree.add_parent_child(grandparent, parent, "biological".to_string());
+        tree.add_parent_child(parent, child, "biological".to_string());
+
+        let roots = tree.roots();
+        assert_eq!(roots.len(), 2);
+        assert!(roots.contains(&grandparent));
+        assert!(roots.contains(&orphan));
+        assert!(!roots.contains(&parent));
+        assert!(!roots.contains(&child));
+    }
+}
