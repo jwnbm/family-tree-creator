@@ -7,10 +7,25 @@ use uuid::Uuid;
 
 type PersonId = Uuid;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+enum Gender {
+    Male,
+    Female,
+    Unknown,
+}
+
+impl Default for Gender {
+    fn default() -> Self {
+        Gender::Unknown
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Person {
     id: PersonId,
     name: String,
+    #[serde(default)]
+    gender: Gender,
     birth: Option<String>, // "YYYY-MM-DD" など
     memo: String,
     #[serde(default)]
@@ -40,13 +55,14 @@ struct FamilyTree {
 }
 
 impl FamilyTree {
-    fn add_person(&mut self, name: String, birth: Option<String>, memo: String) -> PersonId {
+    fn add_person(&mut self, name: String, gender: Gender, birth: Option<String>, memo: String) -> PersonId {
         let id = Uuid::new_v4();
         self.persons.insert(
             id,
             Person {
                 id,
                 name,
+                gender,
                 birth,
                 memo,
                 manual_offset: None,
@@ -150,6 +166,7 @@ struct App {
 
     // 入力フォーム
     new_name: String,
+    new_gender: Gender,
     new_birth: String,
     new_memo: String,
 
@@ -184,6 +201,7 @@ impl Default for App {
             selected: None,
 
             new_name: String::new(),
+            new_gender: Gender::Unknown,
             new_birth: String::new(),
             new_memo: String::new(),
 
@@ -234,16 +252,21 @@ impl App {
     }
 
     fn add_sample(&mut self) {
-        let a = self.tree.add_person("Grandpa".into(), Some("1940-01-01".into()), "".into());
-        let b = self.tree.add_person("Grandma".into(), Some("1942-02-02".into()), "".into());
-        let c = self.tree.add_person("Father".into(), Some("1968-03-03".into()), "".into());
-        let d = self.tree.add_person("Mother".into(), Some("1970-04-04".into()), "".into());
-        let e = self.tree.add_person("Me".into(), Some("1995-05-05".into()), "Hello".into());
+        let a = self.tree.add_person("Grandpa".into(), Gender::Male, Some("1940-01-01".into()), "".into());
+        let b = self.tree.add_person("Grandma".into(), Gender::Female, Some("1942-02-02".into()), "".into());
+        let c = self.tree.add_person("Father".into(), Gender::Male, Some("1968-03-03".into()), "".into());
+        let d = self.tree.add_person("Mother".into(), Gender::Female, Some("1970-04-04".into()), "".into());
+        let e = self.tree.add_person("Me".into(), Gender::Unknown, Some("1995-05-05".into()), "Hello".into());
 
+        // 親子関係
         self.tree.add_parent_child(a, c, "biological".into());
         self.tree.add_parent_child(b, c, "biological".into());
         self.tree.add_parent_child(c, e, "biological".into());
         self.tree.add_parent_child(d, e, "biological".into());
+
+        // 配偶者関係
+        self.tree.add_spouse(a, b, "1965".into());
+        self.tree.add_spouse(c, d, "1994".into());
 
         self.status = "Added sample data".into();
     }
@@ -375,6 +398,12 @@ impl eframe::App for App {
             ui.separator();
             ui.label("Add Person");
             ui.text_edit_singleline(&mut self.new_name);
+            ui.horizontal(|ui| {
+                ui.label("Gender:");
+                ui.radio_value(&mut self.new_gender, Gender::Male, "Male");
+                ui.radio_value(&mut self.new_gender, Gender::Female, "Female");
+                ui.radio_value(&mut self.new_gender, Gender::Unknown, "Unknown");
+            });
             ui.label("Birth (YYYY-MM-DD, optional):");
             ui.text_edit_singleline(&mut self.new_birth);
             ui.label("Memo:");
@@ -385,11 +414,13 @@ impl eframe::App for App {
                     let birth = (!birth.is_empty()).then(|| birth.to_string());
                     let id = self.tree.add_person(
                         self.new_name.trim().to_string(),
+                        self.new_gender,
                         birth,
                         self.new_memo.clone(),
                     );
                     self.selected = Some(id);
                     self.new_name.clear();
+                    self.new_gender = Gender::Unknown;
                     self.new_birth.clear();
                     self.new_memo.clear();
                 } else {
@@ -423,6 +454,12 @@ impl eframe::App for App {
                         ui.text_edit_singleline(&mut p.name);
                     });
                     ui.horizontal(|ui| {
+                        ui.label("Gender:");
+                        ui.radio_value(&mut p.gender, Gender::Male, "Male");
+                        ui.radio_value(&mut p.gender, Gender::Female, "Female");
+                        ui.radio_value(&mut p.gender, Gender::Unknown, "Unknown");
+                    });
+                    ui.horizontal(|ui| {
                         ui.label("Birth:");
                         let mut b = p.birth.clone().unwrap_or_default();
                         if ui.text_edit_singleline(&mut b).changed() {
@@ -438,16 +475,50 @@ impl eframe::App for App {
                     // 既存の関係を表示
                     ui.label("Relations:");
                     
-                    // 父母を表示
+                    // 父母を性別で区別して表示
                     let parents = self.tree.parents_of(sel);
-                    if !parents.is_empty() {
+                    let mut fathers = Vec::new();
+                    let mut mothers = Vec::new();
+                    let mut other_parents = Vec::new();
+                    
+                    for parent_id in &parents {
+                        if let Some(parent) = self.tree.persons.get(parent_id) {
+                            match parent.gender {
+                                Gender::Male => fathers.push((*parent_id, parent.name.clone())),
+                                Gender::Female => mothers.push((*parent_id, parent.name.clone())),
+                                Gender::Unknown => other_parents.push((*parent_id, parent.name.clone())),
+                            }
+                        }
+                    }
+                    
+                    if !fathers.is_empty() {
                         ui.horizontal(|ui| {
-                            ui.label("Parents:");
-                            for parent_id in &parents {
-                                if let Some(parent) = self.tree.persons.get(parent_id) {
-                                    if ui.small_button(&parent.name).clicked() {
-                                        self.selected = Some(*parent_id);
-                                    }
+                            ui.label("Father:");
+                            for (id, name) in &fathers {
+                                if ui.small_button(name).clicked() {
+                                    self.selected = Some(*id);
+                                }
+                            }
+                        });
+                    }
+                    
+                    if !mothers.is_empty() {
+                        ui.horizontal(|ui| {
+                            ui.label("Mother:");
+                            for (id, name) in &mothers {
+                                if ui.small_button(name).clicked() {
+                                    self.selected = Some(*id);
+                                }
+                            }
+                        });
+                    }
+                    
+                    if !other_parents.is_empty() {
+                        ui.horizontal(|ui| {
+                            ui.label("Parent:");
+                            for (id, name) in &other_parents {
+                                if ui.small_button(name).clicked() {
+                                    self.selected = Some(*id);
                                 }
                             }
                         });
