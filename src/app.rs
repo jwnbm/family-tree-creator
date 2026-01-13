@@ -326,18 +326,80 @@ impl App {
     }
 
     fn add_sample(&mut self) {
-        let a = self.tree.add_person("Grandpa".into(), Gender::Male, Some("1940-01-01".into()), "".into(), true, Some("2020-01-01".into()));
-        let b = self.tree.add_person("Grandma".into(), Gender::Female, Some("1942-02-02".into()), "".into(), true, Some("2022-05-15".into()));
-        let c = self.tree.add_person("Father".into(), Gender::Male, Some("1968-03-03".into()), "".into(), false, None);
-        let d = self.tree.add_person("Mother".into(), Gender::Female, Some("1970-04-04".into()), "".into(), false, None);
-        let e = self.tree.add_person("Me".into(), Gender::Unknown, Some("1995-05-05".into()), "Hello".into(), false, None);
+        // 第1世代（祖父母）: 横並び
+        let grandpa = self.tree.add_person("Grandpa".into(), Gender::Male, Some("1940-01-01".into()), "".into(), true, Some("2020-01-01".into()), (0.0, 0.0));
+        let grandma = self.tree.add_person("Grandma".into(), Gender::Female, Some("1942-02-02".into()), "".into(), true, Some("2022-05-15".into()), (230.0, 0.0));
+        
+        // 第2世代（両親と叔父叔母）: 横並び、第1世代の下
+        let uncle = self.tree.add_person("Uncle".into(), Gender::Male, Some("1965-06-15".into()), "".into(), false, None, (-230.0, 110.0));
+        let aunt = self.tree.add_person("Aunt".into(), Gender::Female, Some("1967-08-20".into()), "".into(), false, None, (-460.0, 110.0));
+        let father = self.tree.add_person("Father".into(), Gender::Male, Some("1968-03-03".into()), "".into(), false, None, (0.0, 110.0));
+        let mother = self.tree.add_person("Mother".into(), Gender::Female, Some("1970-04-04".into()), "".into(), false, None, (230.0, 110.0));
+        
+        // 第3世代（兄弟と自分、従兄弟）: 第2世代の下
+        let cousin = self.tree.add_person("Cousin".into(), Gender::Male, Some("1992-11-11".into()), "".into(), false, None, (-345.0, 220.0));
+        let brother = self.tree.add_person("Brother".into(), Gender::Male, Some("1993-07-10".into()), "".into(), false, None, (0.0, 220.0));
+        let me = self.tree.add_person("Me".into(), Gender::Unknown, Some("1995-05-05".into()), "Hello".into(), false, None, (115.0, 220.0));
+        let sister = self.tree.add_person("Sister".into(), Gender::Female, Some("1998-09-20".into()), "".into(), false, None, (230.0, 220.0));
+        
+        // 第4世代（自分の子供）: 第3世代の下
+        let my_spouse = self.tree.add_person("My Spouse".into(), Gender::Female, Some("1996-03-15".into()), "".into(), false, None, (345.0, 220.0));
+        let my_son = self.tree.add_person("My Son".into(), Gender::Male, Some("2020-01-10".into()), "".into(), false, None, (172.5, 330.0));
+        let my_daughter = self.tree.add_person("My Daughter".into(), Gender::Female, Some("2022-06-25".into()), "".into(), false, None, (287.5, 330.0));
 
-        self.tree.add_parent_child(a, c, DEFAULT_RELATION_KIND.into());
-        self.tree.add_parent_child(b, c, DEFAULT_RELATION_KIND.into());
-        self.tree.add_parent_child(c, e, DEFAULT_RELATION_KIND.into());
-        self.tree.add_parent_child(d, e, DEFAULT_RELATION_KIND.into());
-        self.tree.add_spouse(a, b, "1965".into());
-        self.tree.add_spouse(c, d, "1994".into());
+        // 祖父母の関係
+        self.tree.add_spouse(grandpa, grandma, "1965".into());
+        
+        // 叔父叔母の関係
+        self.tree.add_parent_child(grandpa, uncle, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(grandma, uncle, DEFAULT_RELATION_KIND.into());
+        self.tree.add_spouse(uncle, aunt, "1990".into());
+        self.tree.add_parent_child(uncle, cousin, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(aunt, cousin, DEFAULT_RELATION_KIND.into());
+        
+        // 両親の関係
+        self.tree.add_parent_child(grandpa, father, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(grandma, father, DEFAULT_RELATION_KIND.into());
+        self.tree.add_spouse(father, mother, "1992".into());
+        
+        // 兄弟の関係
+        self.tree.add_parent_child(father, brother, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(mother, brother, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(father, me, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(mother, me, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(father, sister, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(mother, sister, DEFAULT_RELATION_KIND.into());
+        
+        // 自分の配偶者と子供の関係
+        self.tree.add_spouse(me, my_spouse, "2018".into());
+        self.tree.add_parent_child(me, my_son, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(my_spouse, my_son, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(me, my_daughter, DEFAULT_RELATION_KIND.into());
+        self.tree.add_parent_child(my_spouse, my_daughter, DEFAULT_RELATION_KIND.into());
+
+        // グループを作成
+        let grandparents_group = self.tree.add_family("Grandparents".into(), Some((200, 150, 100)));
+        let uncle_family_group = self.tree.add_family("Uncle's Family".into(), Some((150, 200, 150)));
+        let parents_group = self.tree.add_family("Parents".into(), Some((100, 150, 200)));
+        let my_family_group = self.tree.add_family("My Family".into(), Some((200, 100, 150)));
+        
+        // グループにメンバーを追加
+        self.tree.add_member_to_family(grandparents_group, grandpa);
+        self.tree.add_member_to_family(grandparents_group, grandma);
+        
+        self.tree.add_member_to_family(uncle_family_group, uncle);
+        self.tree.add_member_to_family(uncle_family_group, aunt);
+        self.tree.add_member_to_family(uncle_family_group, cousin);
+        
+        self.tree.add_member_to_family(parents_group, father);
+        self.tree.add_member_to_family(parents_group, mother);
+        self.tree.add_member_to_family(parents_group, brother);
+        self.tree.add_member_to_family(parents_group, sister);
+        
+        self.tree.add_member_to_family(my_family_group, me);
+        self.tree.add_member_to_family(my_family_group, my_spouse);
+        self.tree.add_member_to_family(my_family_group, my_son);
+        self.tree.add_member_to_family(my_family_group, my_daughter);
 
         let lang = self.language;
         let t = |key: &str| Texts::get(key, lang);
@@ -419,6 +481,11 @@ impl App {
 
         // Add New Button
         if ui.button(t("add_new_person")).clicked() {
+            // 既存の人数に応じて位置をずらす
+            let count = self.tree.persons.len();
+            let x = (count % 5) as f32 * 250.0;
+            let y = (count / 5) as f32 * 120.0;
+            
             let id = self.tree.add_person(
                 t("new_person"),
                 Gender::Unknown,
@@ -426,6 +493,7 @@ impl App {
                 String::new(),
                 false,
                 None,
+                (x, y),
             );
             self.selected = Some(id);
             if let Some(person) = self.tree.persons.get(&id) {
@@ -814,8 +882,13 @@ impl App {
         ui.separator();
         ui.label(t("layout"));
         if ui.button(t("reset_positions")).clicked() {
-            for person in self.tree.persons.values_mut() {
-                person.position = None;
+            // 自動レイアウトの座標を計算して設定
+            let origin = egui::pos2(0.0, 0.0);
+            let nodes = LayoutEngine::compute_layout(&self.tree, origin);
+            for node in nodes {
+                if let Some(person) = self.tree.persons.get_mut(&node.id) {
+                    person.position = (node.rect.left(), node.rect.top());
+                }
             }
             self.status = t("positions_reset");
         }
@@ -900,11 +973,11 @@ impl App {
                         let delta = (pos - start) / self.zoom;
                         
                         if let Some(person) = self.tree.persons.get_mut(&n.id) {
-                            let current_pos = person.position.unwrap_or((n.rect.left(), n.rect.top()));
+                            let current_pos = person.position;
                             let new_x = current_pos.0 + delta.x;
                             let new_y = current_pos.1 + delta.y;
                             
-                            person.position = Some((new_x, new_y));
+                            person.position = (new_x, new_y);
                         }
                         self.node_drag_start = pointer_pos;
                     }
@@ -913,15 +986,14 @@ impl App {
                 if node_response.drag_stopped() && self.dragging_node == Some(n.id) {
                     if self.show_grid {
                         if let Some(person) = self.tree.persons.get_mut(&n.id) {
-                            if let Some((x, y)) = person.position {
-                                let relative_pos = egui::pos2(x - origin.x, y - origin.y);
-                                let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.grid_size);
-                                
-                                let snapped_x = origin.x + snapped_rel.x;
-                                let snapped_y = origin.y + snapped_rel.y;
-                                
-                                person.position = Some((snapped_x, snapped_y));
-                            }
+                            let (x, y) = person.position;
+                            let relative_pos = egui::pos2(x - origin.x, y - origin.y);
+                            let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.grid_size);
+                            
+                            let snapped_x = origin.x + snapped_rel.x;
+                            let snapped_y = origin.y + snapped_rel.y;
+                            
+                            person.position = (snapped_x, snapped_y);
                         }
                     }
                     self.dragging_node = None;

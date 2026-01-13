@@ -71,13 +71,7 @@ impl LayoutEngine {
             if let Some(ids) = by_gen.get(&g) {
                 for (i, id) in ids.iter().enumerate() {
                     let (x, y) = if let Some(person) = tree.persons.get(id) {
-                        if let Some((px, py)) = person.position {
-                            (px, py)
-                        } else {
-                            let auto_x = origin.x + (i as f32) * (node_w + x_gap);
-                            let auto_y = origin.y + (g as f32) * (node_h + y_gap);
-                            (auto_x, auto_y)
-                        }
+                        person.position
                     } else {
                         let auto_x = origin.x + (i as f32) * (node_w + x_gap);
                         let auto_y = origin.y + (g as f32) * (node_h + y_gap);
@@ -207,6 +201,7 @@ mod tests {
             "".to_string(),
             false,
             None,
+            (0.0, 0.0),
         );
         
         let label = LayoutEngine::person_label(&tree, id);
@@ -223,6 +218,7 @@ mod tests {
             "".to_string(),
             false,
             None,
+            (0.0, 0.0),
         );
         
         let label = LayoutEngine::person_label(&tree, id);
@@ -241,6 +237,7 @@ mod tests {
             "".to_string(),
             true,
             Some("2020-12-31".to_string()),
+            (0.0, 0.0),
         );
         
         let label = LayoutEngine::person_label(&tree, id);
@@ -260,6 +257,7 @@ mod tests {
             "".to_string(),
             true,
             None,
+            (0.0, 0.0),
         );
         
         let label = LayoutEngine::person_label(&tree, id);
@@ -278,6 +276,7 @@ mod tests {
             "".to_string(),
             false,
             None,
+            (50.0, 75.0),
         );
         
         let origin = egui::pos2(0.0, 0.0);
@@ -297,6 +296,7 @@ mod tests {
             "".to_string(),
             false,
             None,
+            (0.0, 0.0),
         );
         let child = tree.add_person(
             "Child".to_string(),
@@ -305,6 +305,7 @@ mod tests {
             "".to_string(),
             false,
             None,
+            (0.0, 100.0),
         );
         
         tree.add_parent_child(parent, child, "biological".to_string());
@@ -331,12 +332,8 @@ mod tests {
             "".to_string(),
             false,
             None,
+            (100.0, 200.0),
         );
-        
-        // 手動位置を設定
-        if let Some(person) = tree.persons.get_mut(&id) {
-            person.position = Some((100.0, 200.0));
-        }
         
         let origin = egui::pos2(0.0, 0.0);
         let nodes = LayoutEngine::compute_layout(&tree, origin);
@@ -349,9 +346,9 @@ mod tests {
     #[test]
     fn test_compute_layout_multiple_generations() {
         let mut tree = FamilyTree::default();
-        let grandparent = tree.add_person("GP".to_string(), Gender::Male, None, "".to_string(), false, None);
-        let parent = tree.add_person("P".to_string(), Gender::Female, None, "".to_string(), false, None);
-        let child = tree.add_person("C".to_string(), Gender::Unknown, None, "".to_string(), false, None);
+        let grandparent = tree.add_person("GP".to_string(), Gender::Male, None, "".to_string(), false, None, (0.0, 0.0));
+        let parent = tree.add_person("P".to_string(), Gender::Female, None, "".to_string(), false, None, (0.0, 100.0));
+        let child = tree.add_person("C".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 200.0));
         
         tree.add_parent_child(grandparent, parent, "biological".to_string());
         tree.add_parent_child(parent, child, "biological".to_string());
