@@ -58,8 +58,8 @@ impl LayoutEngine {
             ids.sort_by_key(|id| tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
         }
 
-        let node_w = 140.0;
-        let node_h = 50.0;
+        let node_w = 180.0;
+        let node_h = 60.0;
         let x_gap = 50.0;
         let y_gap = 50.0;
 
