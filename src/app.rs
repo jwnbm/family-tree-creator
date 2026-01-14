@@ -40,6 +40,10 @@ pub struct App {
     // 配偶者関係追加フォーム
     spouse1_pick: Option<PersonId>,
     spouse_memo: String,
+    
+    // 配偶者メモ編集
+    editing_spouse_memo: Option<(PersonId, PersonId)>,
+    edit_spouse_memo_text: String,
 
     // 保存/読込
     file_path: String,
@@ -95,6 +99,9 @@ impl Default for App {
 
             spouse1_pick: None,
             spouse_memo: String::new(),
+            
+            editing_spouse_memo: None,
+            edit_spouse_memo_text: String::new(),
 
             file_path: "tree.json".to_string(),
             status: String::new(),
@@ -437,11 +444,76 @@ impl App {
             self.show_relation_buttons(ui, &t("mother"), &mothers, sel, true);
             self.show_relation_buttons(ui, &t("parent"), &other_parents, sel, true);
             
-            let spouses: Vec<_> = self.tree.spouses_of(sel)
-                .into_iter()
-                .filter_map(|id| self.tree.persons.get(&id).map(|p| (id, p.name.clone())))
-                .collect();
-            self.show_relation_buttons(ui, &t("spouses"), &spouses, sel, false);
+            // 配偶者の表示（メモ付き）
+            let spouse_ids = self.tree.spouses_of(sel);
+            if !spouse_ids.is_empty() {
+                ui.horizontal(|ui| {
+                    ui.label(&t("spouses"));
+                });
+                
+                for spouse_id in &spouse_ids {
+                    // 先に必要な情報をクローンしておく
+                    let spouse_name = self.tree.persons.get(spouse_id)
+                        .map(|p| p.name.clone())
+                        .unwrap_or_default();
+                    
+                    // 配偶者関係のメモを取得
+                    let spouse_memo = self.tree.spouses.iter()
+                        .find(|s| {
+                            (s.person1 == sel && s.person2 == *spouse_id) ||
+                            (s.person1 == *spouse_id && s.person2 == sel)
+                        })
+                        .map(|s| s.memo.clone())
+                        .unwrap_or_default();
+                    
+                    ui.horizontal(|ui| {
+                        if ui.small_button(&spouse_name).clicked() {
+                            self.selected = Some(*spouse_id);
+                        }
+                        
+                        // メモの表示と編集
+                        if !spouse_memo.is_empty() {
+                            ui.label(format!("({})", spouse_memo));
+                        }
+                        
+                        // 編集ボタン
+                        if ui.small_button("✏️").on_hover_text(&t("edit_memo")).clicked() {
+                            self.editing_spouse_memo = Some((sel, *spouse_id));
+                            self.edit_spouse_memo_text = spouse_memo.clone();
+                        }
+                        
+                        // 削除ボタン
+                        if ui.small_button("❌").on_hover_text(&t("remove_relation")).clicked() {
+                            self.tree.remove_spouse(sel, *spouse_id);
+                            self.status = t("relation_removed");
+                        }
+                    });
+                    
+                    // メモ編集UI
+                    if self.editing_spouse_memo == Some((sel, *spouse_id)) {
+                        ui.horizontal(|ui| {
+                            ui.label(&t("memo"));
+                            ui.text_edit_singleline(&mut self.edit_spouse_memo_text);
+                            if ui.button(&t("save")).clicked() {
+                                // 配偶者関係のメモを更新
+                                if let Some(spouse_rel) = self.tree.spouses.iter_mut().find(|s| {
+                                    (s.person1 == sel && s.person2 == *spouse_id) ||
+                                    (s.person1 == *spouse_id && s.person2 == sel)
+                                }) {
+                                    spouse_rel.memo = self.edit_spouse_memo_text.clone();
+                                    self.status = t("spouse_memo_updated");
+                                }
+                                self.editing_spouse_memo = None;
+                                self.edit_spouse_memo_text.clear();
+                            }
+                            if ui.button(&t("cancel")).clicked() {
+                                self.editing_spouse_memo = None;
+                                self.edit_spouse_memo_text.clear();
+                            }
+                        });
+                    }
+                }
+            }
 
             ui.separator();
             ui.label(t("add_relations"));
