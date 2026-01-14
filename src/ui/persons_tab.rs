@@ -222,7 +222,7 @@ impl App {
                 // 編集ボタン
                 if ui.small_button("✏️").on_hover_text(&t("edit_kind")).clicked() {
                     self.editing_parent_kind = Some((*parent_id, sel));
-                    self.edit_parent_kind_text = kind.clone();
+                    self.temp_kind = kind.clone();
                 }
                 
                 // 削除ボタン
@@ -236,25 +236,25 @@ impl App {
             if self.editing_parent_kind == Some((*parent_id, sel)) {
                 ui.horizontal(|ui| {
                     ui.label(&t("kind"));
-                    ui.text_edit_singleline(&mut self.edit_parent_kind_text);
+                    ui.text_edit_singleline(&mut self.temp_kind);
                     if ui.button(&t("save")).clicked() {
                         // 親子関係の種類を更新
                         if let Some(edge) = self.tree.edges.iter_mut().find(|e| {
                             e.parent == *parent_id && e.child == sel
                         }) {
-                            edge.kind = if self.edit_parent_kind_text.trim().is_empty() {
+                            edge.kind = if self.temp_kind.trim().is_empty() {
                                 "biological".to_string()
                             } else {
-                                self.edit_parent_kind_text.trim().to_string()
+                                self.temp_kind.trim().to_string()
                             };
                             self.status = t("relation_kind_updated");
                         }
                         self.editing_parent_kind = None;
-                        self.edit_parent_kind_text.clear();
+                        self.temp_kind.clear();
                     }
                     if ui.button(&t("cancel")).clicked() {
                         self.editing_parent_kind = None;
-                        self.edit_parent_kind_text.clear();
+                        self.temp_kind.clear();
                     }
                 });
             }
@@ -299,7 +299,7 @@ impl App {
                 // 編集ボタン
                 if ui.small_button("✏️").on_hover_text(&t("edit_memo")).clicked() {
                     self.editing_spouse_memo = Some((sel, *spouse_id));
-                    self.edit_spouse_memo_text = spouse_memo.clone();
+                    self.temp_spouse_memo = spouse_memo.clone();
                 }
                 
                 // 削除ボタン
@@ -313,22 +313,22 @@ impl App {
             if self.editing_spouse_memo == Some((sel, *spouse_id)) {
                 ui.horizontal(|ui| {
                     ui.label(&t("memo"));
-                    ui.text_edit_singleline(&mut self.edit_spouse_memo_text);
+                    ui.text_edit_singleline(&mut self.temp_spouse_memo);
                     if ui.button(&t("save")).clicked() {
                         // 配偶者関係のメモを更新
                         if let Some(spouse_rel) = self.tree.spouses.iter_mut().find(|s| {
                             (s.person1 == sel && s.person2 == *spouse_id) ||
                             (s.person1 == *spouse_id && s.person2 == sel)
                         }) {
-                            spouse_rel.memo = self.edit_spouse_memo_text.clone();
+                            spouse_rel.memo = self.temp_spouse_memo.clone();
                             self.status = t("spouse_memo_updated");
                         }
                         self.editing_spouse_memo = None;
-                        self.edit_spouse_memo_text.clear();
+                        self.temp_spouse_memo.clear();
                     }
                     if ui.button(&t("cancel")).clicked() {
                         self.editing_spouse_memo = None;
-                        self.edit_spouse_memo_text.clear();
+                        self.temp_spouse_memo.clear();
                     }
                 });
             }
@@ -424,15 +424,15 @@ impl App {
             ui.label(t("add_spouse"));
             egui::ComboBox::from_id_salt("add_spouse")
                 .selected_text(
-                    self.spouse1_pick
+                    self.spouse_pick
                         .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
                         .unwrap_or_else(|| t("select")),
                 )
-                .show_ui(|ui| {
+                .show_ui(ui, |ui| {
                     for id in all_ids {
                         if *id != sel {
                             let name = self.get_person_name(id);
-                            ui.selectable_value(&mut self.spouse1_pick, Some(*id), name);
+                            ui.selectable_value(&mut self.spouse_pick, Some(*id), name);
                         }
                     }
                 });
@@ -441,9 +441,9 @@ impl App {
             ui.label(t("memo"));
             ui.text_edit_singleline(&mut self.spouse_memo);
             if ui.button(t("add")).clicked() {
-                if let Some(spouse) = self.spouse1_pick {
+                if let Some(spouse) = self.spouse_pick {
                     self.tree.add_spouse(sel, spouse, self.spouse_memo.clone());
-                    self.spouse1_pick = None;
+                    self.spouse_pick = None;
                     self.spouse_memo.clear();
                     self.status = t("spouse_added");
                 }

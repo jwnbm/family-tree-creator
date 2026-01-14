@@ -211,22 +211,26 @@ impl FamilyTree {
         }
     }
 
+    #[allow(dead_code)]
     pub fn update_family_name(&mut self, family_id: Uuid, name: String) {
         if let Some(family) = self.families.iter_mut().find(|f| f.id == family_id) {
             family.name = name;
         }
     }
 
+    #[allow(dead_code)]
     pub fn update_family_color(&mut self, family_id: Uuid, color: Option<(u8, u8, u8)>) {
         if let Some(family) = self.families.iter_mut().find(|f| f.id == family_id) {
             family.color = color;
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_family(&self, family_id: Uuid) -> Option<&Family> {
         self.families.iter().find(|f| f.id == family_id)
     }
 
+    #[allow(dead_code)]
     pub fn get_families_containing(&self, person_id: PersonId) -> Vec<&Family> {
         self.families
             .iter()

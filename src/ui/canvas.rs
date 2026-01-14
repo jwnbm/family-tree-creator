@@ -1,0 +1,554 @@
+use crate::app::{App, SideTab, NODE_CORNER_RADIUS, SPOUSE_LINE_OFFSET, EDGE_STROKE_WIDTH};
+use crate::core::tree::{PersonId, Gender};
+use crate::core::layout::LayoutEngine;
+use crate::core::i18n::Texts;
+use std::collections::HashMap;
+
+/// キャンバスのメイン描画トレイト
+pub trait CanvasRenderer {
+    fn render_canvas(&mut self, ctx: &egui::Context);
+}
+
+/// ノード描画トレイト
+pub trait NodeRenderer {
+    fn render_canvas_nodes(
+        &mut self,
+        _ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        nodes: &[crate::core::layout::LayoutNode],
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+    );
+}
+
+/// ノードインタラクショントレイト
+pub trait NodeInteractionHandler {
+    fn handle_node_interactions(
+        &mut self,
+        ui: &mut egui::Ui,
+        nodes: &[crate::core::layout::LayoutNode],
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+        pointer_pos: Option<egui::Pos2>,
+        origin: egui::Pos2,
+    ) -> (bool, bool);
+}
+
+/// パン・ズーム処理トレイト
+pub trait PanZoomHandler {
+    fn handle_pan_zoom(
+        &mut self,
+        ui: &mut egui::Ui,
+        rect: egui::Rect,
+        pointer_pos: Option<egui::Pos2>,
+        node_hovered: bool,
+        any_node_dragged: bool,
+    );
+}
+
+/// エッジ描画トレイト
+pub trait EdgeRenderer {
+    fn render_canvas_edges(
+        &self,
+        painter: &egui::Painter,
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+    );
+}
+
+/// 家族の枠描画トレイト
+pub trait FamilyBoxRenderer {
+    fn render_family_boxes(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+    );
+}
+
+impl NodeRenderer for App {
+    fn render_canvas_nodes(
+        &mut self,
+        _ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        nodes: &[crate::core::layout::LayoutNode],
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+    ) {
+        for n in nodes {
+            if let Some(r) = screen_rects.get(&n.id) {
+                let is_sel = self.selected == Some(n.id);
+                let is_dragging = self.dragging_node == Some(n.id);
+                
+                let gender = self.tree.persons.get(&n.id).map(|p| p.gender).unwrap_or(Gender::Unknown);
+                let base_color = match gender {
+                    Gender::Male => egui::Color32::from_rgb(173, 216, 230),
+                    Gender::Female => egui::Color32::from_rgb(255, 182, 193),
+                    Gender::Unknown => egui::Color32::from_rgb(245, 245, 245),
+                };
+                
+                let fill = if is_dragging {
+                    egui::Color32::from_rgb(255, 220, 180)
+                } else if is_sel {
+                    match gender {
+                        Gender::Male => egui::Color32::from_rgb(200, 235, 255),
+                        Gender::Female => egui::Color32::from_rgb(255, 220, 230),
+                        Gender::Unknown => egui::Color32::from_rgb(200, 230, 255),
+                    }
+                } else {
+                    base_color
+                };
+
+                painter.rect_filled(*r, NODE_CORNER_RADIUS, fill);
+                painter.rect_stroke(*r, NODE_CORNER_RADIUS, egui::Stroke::new(1.0, egui::Color32::GRAY), egui::epaint::StrokeKind::Outside);
+
+                let text = LayoutEngine::person_label(&self.tree, n.id);
+                painter.text(
+                    r.center(),
+                    egui::Align2::CENTER_CENTER,
+                    text,
+                    egui::FontId::proportional(14.0 * self.zoom.clamp(0.7, 1.2)),
+                    egui::Color32::BLACK,
+                );
+            }
+        }
+    }
+}
+
+impl NodeInteractionHandler for App {
+    fn handle_node_interactions(
+        &mut self,
+        ui: &mut egui::Ui,
+        nodes: &[crate::core::layout::LayoutNode],
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+        pointer_pos: Option<egui::Pos2>,
+        origin: egui::Pos2,
+    ) -> (bool, bool) {
+        let mut node_hovered = false;
+        let mut any_node_dragged = false;
+        
+        for n in nodes {
+            if let Some(r) = screen_rects.get(&n.id) {
+                let node_id = ui.id().with(n.id);
+                let node_response = ui.interact(*r, node_id, egui::Sense::click_and_drag());
+                
+                if node_response.hovered() {
+                    node_hovered = true;
+                }
+                
+                if node_response.drag_started() {
+                    self.dragging_node = Some(n.id);
+                    self.node_drag_start = pointer_pos;
+                }
+                
+                if node_response.dragged() && self.dragging_node == Some(n.id) {
+                    any_node_dragged = true;
+                    if let (Some(pos), Some(start)) = (pointer_pos, self.node_drag_start) {
+                        let delta = (pos - start) / self.zoom;
+                        
+                        if let Some(person) = self.tree.persons.get_mut(&n.id) {
+                            let current_pos = person.position;
+                            let new_x = current_pos.0 + delta.x;
+                            let new_y = current_pos.1 + delta.y;
+                            
+                            person.position = (new_x, new_y);
+                        }
+                        self.node_drag_start = pointer_pos;
+                    }
+                }
+                
+                if node_response.drag_stopped() && self.dragging_node == Some(n.id) {
+                    if self.show_grid {
+                        if let Some(person) = self.tree.persons.get_mut(&n.id) {
+                            let (x, y) = person.position;
+                            let relative_pos = egui::pos2(x - origin.x, y - origin.y);
+                            let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.grid_size);
+                            
+                            let snapped_x = origin.x + snapped_rel.x;
+                            let snapped_y = origin.y + snapped_rel.y;
+                            
+                            person.position = (snapped_x, snapped_y);
+                        }
+                    }
+                    self.dragging_node = None;
+                    self.node_drag_start = None;
+                }
+                
+                if node_response.clicked() {
+                    self.selected = Some(n.id);
+                    if let Some(person) = self.tree.persons.get(&n.id) {
+                        self.new_name = person.name.clone();
+                        self.new_gender = person.gender;
+                        self.new_birth = person.birth.clone().unwrap_or_default();
+                        self.new_memo = person.memo.clone();
+                        self.new_deceased = person.deceased;
+                        self.new_death = person.death.clone().unwrap_or_default();
+                    }
+                }
+            }
+        }
+        
+        (node_hovered, any_node_dragged)
+    }
+}
+
+impl PanZoomHandler for App {
+    fn handle_pan_zoom(
+        &mut self,
+        ui: &mut egui::Ui,
+        rect: egui::Rect,
+        pointer_pos: Option<egui::Pos2>,
+        node_hovered: bool,
+        any_node_dragged: bool,
+    ) {
+        if !node_hovered && !any_node_dragged && self.dragging_node.is_none() {
+            if let Some(pos) = pointer_pos {
+                let primary_down = ui.input(|i| i.pointer.primary_down());
+                let primary_pressed = ui.input(|i| i.pointer.primary_pressed());
+                
+                if primary_pressed && rect.contains(pos) {
+                    self.dragging_pan = true;
+                    self.last_pointer_pos = Some(pos);
+                }
+                
+                if self.dragging_pan && primary_down {
+                    if let Some(prev) = self.last_pointer_pos {
+                        self.pan += pos - prev;
+                        self.last_pointer_pos = Some(pos);
+                    }
+                }
+                
+                if !primary_down && self.dragging_pan {
+                    self.dragging_pan = false;
+                    self.last_pointer_pos = None;
+                }
+            }
+        } else if !any_node_dragged {
+            self.dragging_pan = false;
+            self.last_pointer_pos = None;
+        }
+    }
+}
+
+impl EdgeRenderer for App {
+    fn render_canvas_edges(
+        &self,
+        painter: &egui::Painter,
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+    ) {
+        // 配偶者の線
+        for s in &self.tree.spouses {
+            if let (Some(r1), Some(r2)) = (screen_rects.get(&s.person1), screen_rects.get(&s.person2)) {
+                let a = r1.center();
+                let b = r2.center();
+                
+                let dir = (b - a).normalized();
+                let perpendicular = egui::vec2(-dir.y, dir.x) * SPOUSE_LINE_OFFSET;
+                
+                painter.line_segment(
+                    [a + perpendicular, b + perpendicular],
+                    egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
+                );
+                painter.line_segment(
+                    [a - perpendicular, b - perpendicular],
+                    egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
+                );
+                
+                if !s.memo.is_empty() {
+                    let mid = egui::pos2((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
+                    painter.text(
+                        mid,
+                        egui::Align2::CENTER_CENTER,
+                        &s.memo,
+                        egui::FontId::proportional(10.0 * self.zoom.clamp(0.7, 1.2)),
+                        egui::Color32::DARK_GRAY,
+                    );
+                }
+            }
+        }
+
+        // 親子の線
+        let mut child_to_parents: HashMap<PersonId, Vec<PersonId>> = HashMap::new();
+        for e in &self.tree.edges {
+            child_to_parents.entry(e.child).or_default().push(e.parent);
+        }
+
+        let mut processed_children = std::collections::HashSet::new();
+
+        for e in &self.tree.edges {
+            let child_id = e.child;
+            
+            if processed_children.contains(&child_id) {
+                continue;
+            }
+            
+            if let Some(parents) = child_to_parents.get(&child_id) {
+                let mut father_id = None;
+                let mut mother_id = None;
+                let mut other_parents = Vec::new();
+                
+                for parent_id in parents {
+                    if let Some(parent) = self.tree.persons.get(parent_id) {
+                        match parent.gender {
+                            Gender::Male if father_id.is_none() => father_id = Some(*parent_id),
+                            Gender::Female if mother_id.is_none() => mother_id = Some(*parent_id),
+                            _ => other_parents.push(*parent_id),
+                        }
+                    }
+                }
+                
+                if let (Some(father), Some(mother)) = (father_id, mother_id) {
+                    let are_spouses = self.tree.spouses.iter().any(|s| {
+                        (s.person1 == father && s.person2 == mother) ||
+                        (s.person1 == mother && s.person2 == father)
+                    });
+                    
+                    if are_spouses {
+                        if let (Some(rf), Some(rm), Some(rc)) = (
+                            screen_rects.get(&father),
+                            screen_rects.get(&mother),
+                            screen_rects.get(&child_id)
+                        ) {
+                            let father_center = rf.center();
+                            let mother_center = rm.center();
+                            let mid = egui::pos2(
+                                (father_center.x + mother_center.x) / 2.0,
+                                (father_center.y + mother_center.y) / 2.0
+                            );
+                            let child_top = rc.center_top();
+                            
+                            painter.line_segment([mid, child_top], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
+                        }
+                    } else {
+                        if let (Some(rf), Some(rm), Some(rc)) = (
+                            screen_rects.get(&father),
+                            screen_rects.get(&mother),
+                            screen_rects.get(&child_id)
+                        ) {
+                            let father_center = rf.center();
+                            let mother_center = rm.center();
+                            
+                            painter.line_segment(
+                                [father_center, mother_center],
+                                egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY)
+                            );
+                            
+                            let mid = egui::pos2(
+                                (father_center.x + mother_center.x) / 2.0,
+                                (father_center.y + mother_center.y) / 2.0
+                            );
+                            let child_top = rc.center_top();
+                            
+                            painter.line_segment([mid, child_top], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
+                        }
+                    }
+                    processed_children.insert(child_id);
+                    continue;
+                }
+            }
+            
+            if let (Some(rp), Some(rc)) = (screen_rects.get(&e.parent), screen_rects.get(&e.child)) {
+                let a = rp.center_bottom();
+                let b = rc.center_top();
+                painter.line_segment([a, b], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
+            }
+        }
+    }
+}
+
+impl FamilyBoxRenderer for App {
+    fn render_family_boxes(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+    ) {
+        for family in &self.tree.families {
+            if family.members.len() < 2 {
+                continue;
+            }
+            
+            let mut min_x = f32::MAX;
+            let mut min_y = f32::MAX;
+            let mut max_x = f32::MIN;
+            let mut max_y = f32::MIN;
+            
+            for member_id in &family.members {
+                if let Some(rect) = screen_rects.get(member_id) {
+                    min_x = min_x.min(rect.min.x);
+                    min_y = min_y.min(rect.min.y);
+                    max_x = max_x.max(rect.max.x);
+                    max_y = max_y.max(rect.max.y);
+                }
+            }
+            
+            if min_x < f32::MAX {
+                let padding = 20.0;
+                let family_rect = egui::Rect::from_min_max(
+                    egui::pos2(min_x - padding, min_y - padding),
+                    egui::pos2(max_x + padding, max_y + padding)
+                );
+                
+                let color = if let Some((r, g, b)) = family.color {
+                    egui::Color32::from_rgba_unmultiplied(r, g, b, 30)
+                } else {
+                    egui::Color32::from_rgba_unmultiplied(200, 200, 255, 30)
+                };
+                
+                let stroke_color = if let Some((r, g, b)) = family.color {
+                    egui::Color32::from_rgb(r, g, b)
+                } else {
+                    egui::Color32::from_rgb(100, 100, 200)
+                };
+                
+                painter.rect_filled(family_rect, 8.0, color);
+                painter.rect_stroke(
+                    family_rect,
+                    8.0,
+                    egui::Stroke::new(2.0, stroke_color),
+                    egui::epaint::StrokeKind::Outside
+                );
+                
+                let label_pos = family_rect.left_top() + egui::vec2(10.0, 5.0);
+                let label_size = egui::vec2(family_rect.width() * 0.5, 20.0);
+                let label_rect = egui::Rect::from_min_size(label_pos, label_size);
+                
+                let resp = ui.interact(label_rect, egui::Id::new(("family_label", family.id)), egui::Sense::click());
+                
+                let bg_color = if resp.is_pointer_button_down_on() {
+                    egui::Color32::from_rgba_unmultiplied(
+                        stroke_color.r(), 
+                        stroke_color.g(), 
+                        stroke_color.b(), 
+                        100
+                    )
+                } else if resp.hovered() {
+                    egui::Color32::from_rgba_unmultiplied(
+                        stroke_color.r(), 
+                        stroke_color.g(), 
+                        stroke_color.b(), 
+                        60
+                    )
+                } else {
+                    egui::Color32::from_rgba_unmultiplied(
+                        stroke_color.r(), 
+                        stroke_color.g(), 
+                        stroke_color.b(), 
+                        30
+                    )
+                };
+                
+                painter.rect_filled(label_rect, 3.0, bg_color);
+                
+                if resp.hovered() || resp.is_pointer_button_down_on() {
+                    painter.rect_stroke(
+                        label_rect,
+                        3.0,
+                        egui::Stroke::new(1.5, stroke_color),
+                        egui::epaint::StrokeKind::Outside
+                    );
+                }
+                
+                let text_color = if resp.hovered() || resp.is_pointer_button_down_on() {
+                    stroke_color
+                } else {
+                    egui::Color32::from_rgb(
+                        (stroke_color.r() as f32 * 0.8) as u8,
+                        (stroke_color.g() as f32 * 0.8) as u8,
+                        (stroke_color.b() as f32 * 0.8) as u8,
+                    )
+                };
+                
+                painter.text(
+                    label_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    &family.name,
+                    egui::FontId::proportional(11.0 * self.zoom.clamp(0.7, 1.2)),
+                    text_color,
+                );
+                
+                if resp.clicked() {
+                    self.selected_family = Some(family.id);
+                    self.new_family_name = family.name.clone();
+                    if let Some((r, g, b)) = family.color {
+                        self.new_family_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
+                    }
+                    self.side_tab = SideTab::Families;
+                    let lang = self.language;
+                    let t = |key: &str| Texts::get(key, lang);
+                    self.status = format!("{} {}", t("selected_family"), family.name);
+                }
+            }
+        }
+    }
+}
+
+impl CanvasRenderer for App {
+    fn render_canvas(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let (rect, _response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
+            let pointer_pos = ui.input(|i| i.pointer.interact_pos());
+            
+            // キャンバス情報を保存
+            self.canvas_rect = rect;
+
+            // ズーム処理
+            ctx.input(|i| {
+                if i.modifiers.ctrl && i.raw_scroll_delta.y.abs() > 0.0 {
+                    let factor = (i.raw_scroll_delta.y / 400.0).exp();
+                    self.zoom = (self.zoom * factor).clamp(0.3, 3.0);
+                }
+            });
+
+            let painter = ui.painter_at(rect);
+
+            let to_screen = |p: egui::Pos2, zoom: f32, pan: egui::Vec2, origin: egui::Pos2| -> egui::Pos2 {
+                let v = (p - origin) * zoom;
+                origin + v + pan
+            };
+
+            let base_origin = rect.left_top() + egui::vec2(24.0, 24.0);
+            let origin = if self.show_grid {
+                LayoutEngine::snap_to_grid(base_origin, self.grid_size)
+            } else {
+                base_origin
+            };
+            
+            // originを保存
+            self.canvas_origin = origin;
+            
+            if self.show_grid {
+                LayoutEngine::draw_grid(&painter, rect, origin, self.zoom, self.pan, self.grid_size);
+            }
+
+            let nodes = LayoutEngine::compute_layout(&self.tree, origin);
+
+            let mut screen_rects: HashMap<PersonId, egui::Rect> = HashMap::new();
+            for n in &nodes {
+                let min = to_screen(n.rect.min, self.zoom, self.pan, origin);
+                let max = to_screen(n.rect.max, self.zoom, self.pan, origin);
+                screen_rects.insert(n.id, egui::Rect::from_min_max(min, max));
+            }
+
+            // ノードのインタラクション処理
+            let (node_hovered, any_node_dragged) = self.handle_node_interactions(ui, &nodes, &screen_rects, pointer_pos, origin);
+            
+            // パン・ズーム処理
+            self.handle_pan_zoom(ui, rect, pointer_pos, node_hovered, any_node_dragged);
+
+            // エッジ（関係線）描画
+            self.render_canvas_edges(&painter, &screen_rects);
+
+            // 家族の枠描画
+            self.render_family_boxes(ui, &painter, &screen_rects);
+
+            // ノード描画
+            self.render_canvas_nodes(ui, &painter, &nodes, &screen_rects);
+
+            // ズーム表示
+            painter.text(
+                rect.right_top() + egui::vec2(-10.0, 10.0),
+                egui::Align2::RIGHT_TOP,
+                format!("zoom: {:.2}", self.zoom),
+                egui::FontId::proportional(12.0),
+                egui::Color32::DARK_GRAY,
+            );
+        });
+    }
+}

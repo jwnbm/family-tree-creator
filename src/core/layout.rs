@@ -6,7 +6,9 @@ use crate::core::tree::{FamilyTree, PersonId};
 #[derive(Debug, Clone)]
 pub struct LayoutNode {
     pub id: PersonId,
+    #[allow(dead_code)]
     pub generation: usize, // 世代(0=ルート)
+    #[allow(dead_code)]
     pub pos: egui::Pos2,
     pub rect: egui::Rect,
 }
