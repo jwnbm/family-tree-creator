@@ -4,7 +4,7 @@ use eframe::egui;
 use crate::core::tree::{FamilyTree, PersonId};
 use crate::core::i18n::Texts;
 use crate::ui::{
-    PersonsTabRenderer, FamiliesTabRenderer, SettingsTabRenderer, CanvasRenderer,
+    FileMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, SettingsTabRenderer, CanvasRenderer,
     PersonEditorState, RelationEditorState, FamilyEditorState, 
     CanvasState, FileState, UiState, SideTab
 };
@@ -93,59 +93,9 @@ impl eframe::App for App {
         // メニューバー
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.menu_button(t("file_menu"), |ui| {
-                    if ui.button(t("new")).clicked() {
-                        self.tree = crate::core::tree::FamilyTree::default();
-                        self.person_editor.selected = None;
-                        self.file.file_path = "tree.json".to_string();
-                        self.file.status = t("new_tree_created");
-                        ui.close();
-                    }
-                    
-                    if ui.button(format!("{} (Ctrl+O)", t("open"))).clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                            .add_filter("JSON", &["json"])
-                            .pick_file()
-                        {
-                            self.file.file_path = path.display().to_string();
-                            self.load();
-                        }
-                        ui.close();
-                    }
-                    
-                    if ui.button(format!("{} (Ctrl+S)", t("save"))).clicked() {
-                        self.save();
-                        ui.close();
-                    }
-                    
-                    if ui.button(t("save_as")).clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                            .add_filter("JSON", &["json"])
-                            .set_file_name(&self.file.file_path)
-                            .save_file()
-                        {
-                            self.file.file_path = path.display().to_string();
-                            self.save();
-                        }
-                        ui.close();
-                    }
-                });
+                self.render_file_menu(ui, ctx);
             });
         });
-        
-        // キーボードショートカット
-        if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::S)) {
-            self.save();
-        }
-        if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::O)) {
-            if let Some(path) = rfd::FileDialog::new()
-                .add_filter("JSON", &["json"])
-                .pick_file()
-            {
-                self.file.file_path = path.display().to_string();
-                self.load();
-            }
-        }
         
         // サイドパネル
         egui::SidePanel::left("left_panel").resizable(true).show(ctx, |ui| {
