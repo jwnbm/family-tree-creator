@@ -25,14 +25,12 @@ impl Texts {
             "persons" => "👤 個人",
             "families" => "👪 家族",
             "settings" => "⚙ 設定",
-            "file" => "ファイル:",            "browse" => "参照",            "save" => "保存",
             "file_menu" => "ファイル",
             "new" => "新規",
             "open" => "開く",
+            "save" => "保存",
             "save_as" => "名前を付けて保存",
             "new_tree_created" => "新しい家系図を作成しました",
-            "load" => "読込",
-            "sample" => "サンプル",
             "add_new_person" => "➕ 新しい個人を追加",
             "person_editor" => "個人エディタ",
             "name" => "名前:",
@@ -98,7 +96,6 @@ impl Texts {
             "positions_reset" => "すべての位置をリセットしました",
             "saved" => "保存しました",
             "loaded" => "読み込みました",
-            "sample_added" => "サンプルデータを追加しました",
             "edit" => "編集:",
             "remove_relation" => "関係を削除",
             "selected_family" => "選択した家族:",
@@ -112,7 +109,12 @@ impl Texts {
             "tooltip_deceased" => "死亡",
             "tooltip_yes" => "はい",
             "tooltip_memo" => "メモ",
-            _ => key,
+            _ => {
+                if cfg!(debug_assertions) {
+                    eprintln!("[i18n Warning] Unknown translation key (ja): '{}'", key);
+                }
+                key
+            }
         }.to_string()
     }
     
@@ -122,14 +124,12 @@ impl Texts {
             "persons" => "👤 Persons",
             "families" => "👪 Families",
             "settings" => "⚙ Settings",
-            "file" => "File:",            "browse" => "Browse",            "save" => "Save",
             "file_menu" => "File",
             "new" => "New",
             "open" => "Open",
+            "save" => "Save",
             "save_as" => "Save As...",
             "new_tree_created" => "New tree created",
-            "load" => "Load",
-            "sample" => "Sample",
             "add_new_person" => "➕ Add New Person",
             "person_editor" => "Person Editor",
             "name" => "Name:",
@@ -195,7 +195,6 @@ impl Texts {
             "positions_reset" => "All positions reset",
             "saved" => "Saved",
             "loaded" => "Loaded",
-            "sample_added" => "Added sample data",
             "edit" => "Edit:",
             "remove_relation" => "Remove relation",
             "selected_family" => "Selected family:",
@@ -209,7 +208,12 @@ impl Texts {
             "tooltip_deceased" => "Deceased",
             "tooltip_yes" => "Yes",
             "tooltip_memo" => "Memo",
-            _ => key,
+            _ => {
+                if cfg!(debug_assertions) {
+                    eprintln!("[i18n Warning] Unknown translation key (en): '{}'", key);
+                }
+                key
+            }
         }.to_string()
     }
 }
@@ -222,7 +226,6 @@ mod tests {
     fn test_japanese_translation() {
         assert_eq!(Texts::get("title", Language::Japanese), "家系図 (MVP)");
         assert_eq!(Texts::get("save", Language::Japanese), "保存");
-        assert_eq!(Texts::get("load", Language::Japanese), "読込");
         assert_eq!(Texts::get("male", Language::Japanese), "男性");
         assert_eq!(Texts::get("female", Language::Japanese), "女性");
     }
@@ -231,7 +234,6 @@ mod tests {
     fn test_english_translation() {
         assert_eq!(Texts::get("title", Language::English), "Family Tree (MVP)");
         assert_eq!(Texts::get("save", Language::English), "Save");
-        assert_eq!(Texts::get("load", Language::English), "Load");
         assert_eq!(Texts::get("male", Language::English), "Male");
         assert_eq!(Texts::get("female", Language::English), "Female");
     }
@@ -251,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_all_common_keys() {
-        let keys = vec!["title", "save", "load", "persons", "families", "settings"];
+        let keys = vec!["title", "save", "persons", "families", "settings"];
         
         for key in keys {
             let ja = Texts::get(key, Language::Japanese);
