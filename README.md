@@ -137,18 +137,46 @@ Access the **Settings** tab to configure:
 ```
 family-tree-creator/
 ├── src/
-│   ├── main.rs       # Application entry point
-│   ├── app.rs        # Main application logic and UI
-│   └── core/         # Core logic modules
-│       ├── mod.rs    # Module declarations
-│       ├── tree.rs   # Data model (Person, Family, Relationships)
-│       ├── layout.rs # Layout engine and rendering utilities
-│       └── i18n.rs   # Multilingual support (Japanese/English)
-├── screenshots/  # Application screenshots
-├── Cargo.toml        # Project dependencies
-├── TODO.md           # Future feature roadmap
-└── README.md         # This file
+│   ├── main.rs           # Application entry point
+│   ├── app.rs            # Main application state (276 lines)
+│   ├── ui/               # UI modules (trait-based architecture)
+│   │   ├── mod.rs        # Module declarations and trait exports
+│   │   ├── persons_tab.rs    # Person management UI (~450 lines)
+│   │   ├── families_tab.rs   # Family group management UI (~150 lines)
+│   │   ├── settings_tab.rs   # Settings UI (~30 lines)
+│   │   └── canvas.rs         # Canvas rendering (nodes, edges, interactions) (~480 lines)
+│   └── core/             # Core logic modules
+│       ├── mod.rs        # Module declarations
+│       ├── tree.rs       # Data model (Person, Family, Relationships)
+│       ├── layout.rs     # Layout engine and rendering utilities
+│       └── i18n.rs       # Multilingual support (Japanese/English)
+├── screenshots/      # Application screenshots
+├── Cargo.toml            # Project dependencies
+├── TODO.md               # Future feature roadmap
+└── README.md             # This file
 ```
+
+### Architecture
+
+The application follows a clean, modular architecture:
+
+- **Trait-Based UI**: Each UI component implements a trait on the `App` struct
+  - `PersonsTabRenderer` - Person list, editor, and relationship management
+  - `FamiliesTabRenderer` - Family group creation and member management
+  - `SettingsTabRenderer` - Language and display settings
+  - `CanvasRenderer` - Main canvas with multiple sub-traits:
+    - `NodeRenderer` - Person node visualization
+    - `EdgeRenderer` - Relationship lines (parent-child, spouse)
+    - `FamilyBoxRenderer` - Family group boundaries
+    - `NodeInteractionHandler` - Node dragging and selection
+    - `PanZoomHandler` - Canvas navigation
+
+- **Core Domain Logic**: Separated from UI concerns
+  - `FamilyTree` - Person and relationship data structures
+  - `LayoutEngine` - Automatic and manual positioning
+  - `Texts` - Internationalization system
+
+- **Testing**: 29 comprehensive unit tests covering core functionality
 
 ## 🛠️ Technical Stack
 

@@ -137,19 +137,47 @@ cargo run --release
 ```
 family-tree-creator/
 ├── src/
-│   ├── main.rs       # アプリケーションエントリーポイント
-│   ├── app.rs        # メインアプリケーションロジックとUI
-│   └── core/         # コアロジックモジュール
-│       ├── mod.rs    # モジュール宣言
-│       ├── tree.rs   # データモデル（人物、家族、関係）
-│       ├── layout.rs # レイアウトエンジンと描画ユーティリティ
-│       └── i18n.rs   # 多言語対応（日本語/英語）
-├── screenshots/  # アプリケーションのスクリーンショット
-├── Cargo.toml        # プロジェクト依存関係
-├── TODO.md           # 将来の機能ロードマップ
-├── README.md         # 英語版README
-└── README_ja.md      # このファイル
+│   ├── main.rs           # アプリケーションエントリーポイント
+│   ├── app.rs            # メインアプリケーション状態（276行）
+│   ├── ui/               # UIモジュール（トレイトベースアーキテクチャ）
+│   │   ├── mod.rs        # モジュール宣言とトレイトエクスポート
+│   │   ├── persons_tab.rs    # 個人管理UI（約450行）
+│   │   ├── families_tab.rs   # 家族グループ管理UI（約150行）
+│   │   ├── settings_tab.rs   # 設定UI（約30行）
+│   │   └── canvas.rs         # キャンバス描画（ノード、エッジ、インタラクション）（約480行）
+│   └── core/             # コアロジックモジュール
+│       ├── mod.rs        # モジュール宣言
+│       ├── tree.rs       # データモデル（人物、家族、関係）
+│       ├── layout.rs     # レイアウトエンジンと描画ユーティリティ
+│       └── i18n.rs       # 多言語対応（日本語/英語）
+├── screenshots/      # アプリケーションのスクリーンショット
+├── Cargo.toml            # プロジェクト依存関係
+├── TODO.md               # 将来の機能ロードマップ
+├── README.md             # 英語版README
+└── README_ja.md          # このファイル
 ```
+
+### アーキテクチャ
+
+アプリケーションはクリーンでモジュラーなアーキテクチャに従っています：
+
+- **トレイトベースUI**: 各UIコンポーネントは`App`構造体上のトレイトとして実装
+  - `PersonsTabRenderer` - 人物リスト、エディタ、関係管理
+  - `FamiliesTabRenderer` - 家族グループの作成とメンバー管理
+  - `SettingsTabRenderer` - 言語と表示設定
+  - `CanvasRenderer` - メインキャンバスと複数のサブトレイト：
+    - `NodeRenderer` - 人物ノードの可視化
+    - `EdgeRenderer` - 関係線（親子、配偶者）
+    - `FamilyBoxRenderer` - 家族グループの境界線
+    - `NodeInteractionHandler` - ノードのドラッグと選択
+    - `PanZoomHandler` - キャンバスナビゲーション
+
+- **コアドメインロジック**: UI関心事から分離
+  - `FamilyTree` - 人物と関係のデータ構造
+  - `LayoutEngine` - 自動および手動配置
+  - `Texts` - 国際化システム
+
+- **テスト**: コア機能をカバーする29個の包括的なユニットテスト
 
 ## 🛠️ 技術スタック
 
