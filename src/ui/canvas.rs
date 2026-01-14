@@ -1,5 +1,5 @@
 use crate::app::{App, NODE_CORNER_RADIUS, SPOUSE_LINE_OFFSET, EDGE_STROKE_WIDTH};
-use crate::state::SideTab;
+use super::SideTab;
 use crate::core::tree::{PersonId, Gender};
 use crate::core::layout::LayoutEngine;
 use crate::core::i18n::Texts;

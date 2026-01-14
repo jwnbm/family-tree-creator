@@ -4,9 +4,7 @@ use eframe::egui;
 use crate::core::tree::{FamilyTree, PersonId};
 use crate::core::i18n::Texts;
 use crate::ui::{
-    PersonsTabRenderer, FamiliesTabRenderer, SettingsTabRenderer, CanvasRenderer
-};
-use crate::state::{
+    PersonsTabRenderer, FamiliesTabRenderer, SettingsTabRenderer, CanvasRenderer,
     PersonEditorState, RelationEditorState, FamilyEditorState, 
     CanvasState, FileState, UiState, SideTab
 };
