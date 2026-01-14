@@ -47,7 +47,7 @@ English | [日本語](README_ja.md)
 
 ### Data Management
 - **JSON Storage**: Save and load family trees in human-readable JSON format
-- **Sample Data**: Quick-start with pre-populated example family tree (16 people, 4 generations)
+- **Sample Data**: Pre-populated example family tree available at `examples/sample.json` (13 people, 4 generations)
 - **Position Memory**: Manual node positions are preserved
 - **Comprehensive Tests**: 29 unit tests covering core functionality
 
@@ -73,7 +73,7 @@ cargo run --release
 
 ### Quick Start
 
-1. **Load Sample Data**: Click the "Sample" button to load an example family tree with 16 people across 4 generations
+1. **Load Sample Data**: Enter `examples/sample.json` in the file path field and click "Load" to see an example family tree with 13 people across 4 generations
 2. **Add a Person**: Click "➕ Add New Person" in the Persons tab
 3. **Edit Relationships**: Select a person and use the relationship controls to add parents, children, or spouses
 4. **Arrange Nodes**: Drag nodes on the canvas to position them
@@ -148,6 +148,8 @@ family-tree-creator/
 │       ├── tree.rs   # Data model
 │       ├── layout.rs # Layout engine
 │       └── i18n.rs   # Internationalization
+├── examples/
+│   └── sample.json   # Sample family tree data
 ├── Cargo.toml
 └── README.md
 ```
