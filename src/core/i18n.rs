@@ -109,6 +109,14 @@ impl Texts {
             "tooltip_deceased" => "死亡",
             "tooltip_yes" => "はい",
             "tooltip_memo" => "メモ",
+            "help_menu" => "ヘルプ",
+            "about" => "バージョン情報",
+            "license" => "ライセンス情報",
+            "app_name" => "家系図作成ツール",
+            "version" => "バージョン",
+            "description" => "このアプリケーションは家系図を作成・管理するためのツールです。",
+            "license_text" => include_str!("../../LICENSE"),
+            "close" => "閉じる",
             _ => {
                 if cfg!(debug_assertions) {
                     eprintln!("[i18n Warning] Unknown translation key (ja): '{}'", key);
@@ -208,6 +216,14 @@ impl Texts {
             "tooltip_deceased" => "Deceased",
             "tooltip_yes" => "Yes",
             "tooltip_memo" => "Memo",
+            "help_menu" => "Help",
+            "about" => "About",
+            "license" => "License",
+            "app_name" => "Family Tree Creator",
+            "version" => "Version",
+            "description" => "This application is a tool for creating and managing family trees.",
+            "license_text" => include_str!("../../LICENSE"),
+            "close" => "Close",
             _ => {
                 if cfg!(debug_assertions) {
                     eprintln!("[i18n Warning] Unknown translation key (en): '{}'", key);

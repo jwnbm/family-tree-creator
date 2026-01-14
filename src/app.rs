@@ -4,7 +4,7 @@ use eframe::egui;
 use crate::core::tree::{FamilyTree, PersonId};
 use crate::core::i18n::Texts;
 use crate::ui::{
-    FileMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, SettingsTabRenderer, CanvasRenderer,
+    FileMenuRenderer, HelpMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, SettingsTabRenderer, CanvasRenderer,
     PersonEditorState, RelationEditorState, FamilyEditorState, 
     CanvasState, FileState, UiState, SideTab
 };
@@ -94,6 +94,7 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 self.render_file_menu(ui, ctx);
+                self.render_help_menu(ui, ctx);
             });
         });
         

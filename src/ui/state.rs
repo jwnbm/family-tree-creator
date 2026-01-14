@@ -139,6 +139,8 @@ pub enum SideTab {
 pub struct UiState {
     pub side_tab: SideTab,
     pub language: Language,
+    pub show_about_dialog: bool,
+    pub show_license_dialog: bool,
 }
 
 impl Default for UiState {
@@ -146,6 +148,8 @@ impl Default for UiState {
         Self {
             side_tab: SideTab::Persons,
             language: Language::Japanese,
+            show_about_dialog: false,
+            show_license_dialog: false,
         }
     }
 }
