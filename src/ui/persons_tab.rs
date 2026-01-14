@@ -22,9 +22,6 @@ impl PersonsTabRenderer for App {
             if ui.button(t("load")).clicked() {
                 self.load();
             }
-            if ui.button(t("sample")).clicked() {
-                self.add_sample();
-            }
         });
         if !self.status.is_empty() {
             ui.label(&self.status);
