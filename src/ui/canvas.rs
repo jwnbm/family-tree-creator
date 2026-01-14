@@ -369,10 +369,6 @@ impl FamilyBoxRenderer for App {
         screen_rects: &HashMap<PersonId, egui::Rect>,
     ) {
         for family in &self.tree.families {
-            if family.members.len() < 2 {
-                continue;
-            }
-            
             let mut min_x = f32::MAX;
             let mut min_y = f32::MAX;
             let mut max_x = f32::MIN;
