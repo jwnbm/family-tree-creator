@@ -10,19 +10,7 @@ pub trait PersonsTabRenderer {
 
 impl PersonsTabRenderer for App {
     fn render_persons_tab(&mut self, ui: &mut egui::Ui, t: impl Fn(&str) -> String) {
-        // ファイル操作
-        ui.horizontal(|ui| {
-            ui.label(t("file"));
-            ui.text_edit_singleline(&mut self.file.file_path);
-        });
-        ui.horizontal(|ui| {
-            if ui.button(t("save")).clicked() {
-                self.save();
-            }
-            if ui.button(t("load")).clicked() {
-                self.load();
-            }
-        });
+        // ステータス表示
         if !self.file.status.is_empty() {
             ui.label(&self.file.status);
         }
