@@ -1,4 +1,5 @@
-use crate::app::{App, SideTab, NODE_CORNER_RADIUS, SPOUSE_LINE_OFFSET, EDGE_STROKE_WIDTH};
+use crate::app::{App, NODE_CORNER_RADIUS, SPOUSE_LINE_OFFSET, EDGE_STROKE_WIDTH};
+use crate::state::SideTab;
 use crate::core::tree::{PersonId, Gender};
 use crate::core::layout::LayoutEngine;
 use crate::core::i18n::Texts;
@@ -73,8 +74,8 @@ impl NodeRenderer for App {
     ) {
         for n in nodes {
             if let Some(r) = screen_rects.get(&n.id) {
-                let is_sel = self.selected == Some(n.id);
-                let is_dragging = self.dragging_node == Some(n.id);
+                let is_sel = self.person_editor.selected == Some(n.id);
+                let is_dragging = self.canvas.dragging_node == Some(n.id);
                 
                 let gender = self.tree.persons.get(&n.id).map(|p| p.gender).unwrap_or(Gender::Unknown);
                 let base_color = match gender {
@@ -103,7 +104,7 @@ impl NodeRenderer for App {
                     r.center(),
                     egui::Align2::CENTER_CENTER,
                     text,
-                    egui::FontId::proportional(14.0 * self.zoom.clamp(0.7, 1.2)),
+                    egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
                     egui::Color32::BLACK,
                 );
             }
@@ -133,14 +134,14 @@ impl NodeInteractionHandler for App {
                 }
                 
                 if node_response.drag_started() {
-                    self.dragging_node = Some(n.id);
-                    self.node_drag_start = pointer_pos;
+                    self.canvas.dragging_node = Some(n.id);
+                    self.canvas.node_drag_start = pointer_pos;
                 }
                 
-                if node_response.dragged() && self.dragging_node == Some(n.id) {
+                if node_response.dragged() && self.canvas.dragging_node == Some(n.id) {
                     any_node_dragged = true;
-                    if let (Some(pos), Some(start)) = (pointer_pos, self.node_drag_start) {
-                        let delta = (pos - start) / self.zoom;
+                    if let (Some(pos), Some(start)) = (pointer_pos, self.canvas.node_drag_start) {
+                        let delta = (pos - start) / self.canvas.zoom;
                         
                         if let Some(person) = self.tree.persons.get_mut(&n.id) {
                             let current_pos = person.position;
@@ -149,16 +150,16 @@ impl NodeInteractionHandler for App {
                             
                             person.position = (new_x, new_y);
                         }
-                        self.node_drag_start = pointer_pos;
+                        self.canvas.node_drag_start = pointer_pos;
                     }
                 }
                 
-                if node_response.drag_stopped() && self.dragging_node == Some(n.id) {
-                    if self.show_grid {
+                if node_response.drag_stopped() && self.canvas.dragging_node == Some(n.id) {
+                    if self.canvas.show_grid {
                         if let Some(person) = self.tree.persons.get_mut(&n.id) {
                             let (x, y) = person.position;
                             let relative_pos = egui::pos2(x - origin.x, y - origin.y);
-                            let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.grid_size);
+                            let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.canvas.grid_size);
                             
                             let snapped_x = origin.x + snapped_rel.x;
                             let snapped_y = origin.y + snapped_rel.y;
@@ -166,19 +167,19 @@ impl NodeInteractionHandler for App {
                             person.position = (snapped_x, snapped_y);
                         }
                     }
-                    self.dragging_node = None;
-                    self.node_drag_start = None;
+                    self.canvas.dragging_node = None;
+                    self.canvas.node_drag_start = None;
                 }
                 
                 if node_response.clicked() {
-                    self.selected = Some(n.id);
+                    self.person_editor.selected = Some(n.id);
                     if let Some(person) = self.tree.persons.get(&n.id) {
-                        self.new_name = person.name.clone();
-                        self.new_gender = person.gender;
-                        self.new_birth = person.birth.clone().unwrap_or_default();
-                        self.new_memo = person.memo.clone();
-                        self.new_deceased = person.deceased;
-                        self.new_death = person.death.clone().unwrap_or_default();
+                        self.person_editor.new_name = person.name.clone();
+                        self.person_editor.new_gender = person.gender;
+                        self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+                        self.person_editor.new_memo = person.memo.clone();
+                        self.person_editor.new_deceased = person.deceased;
+                        self.person_editor.new_death = person.death.clone().unwrap_or_default();
                     }
                 }
             }
@@ -197,31 +198,31 @@ impl PanZoomHandler for App {
         node_hovered: bool,
         any_node_dragged: bool,
     ) {
-        if !node_hovered && !any_node_dragged && self.dragging_node.is_none() {
+        if !node_hovered && !any_node_dragged && self.canvas.dragging_node.is_none() {
             if let Some(pos) = pointer_pos {
                 let primary_down = ui.input(|i| i.pointer.primary_down());
                 let primary_pressed = ui.input(|i| i.pointer.primary_pressed());
                 
                 if primary_pressed && rect.contains(pos) {
-                    self.dragging_pan = true;
-                    self.last_pointer_pos = Some(pos);
+                    self.canvas.dragging_pan = true;
+                    self.canvas.last_pointer_pos = Some(pos);
                 }
                 
-                if self.dragging_pan && primary_down {
-                    if let Some(prev) = self.last_pointer_pos {
-                        self.pan += pos - prev;
-                        self.last_pointer_pos = Some(pos);
+                if self.canvas.dragging_pan && primary_down {
+                    if let Some(prev) = self.canvas.last_pointer_pos {
+                        self.canvas.pan += pos - prev;
+                        self.canvas.last_pointer_pos = Some(pos);
                     }
                 }
                 
-                if !primary_down && self.dragging_pan {
-                    self.dragging_pan = false;
-                    self.last_pointer_pos = None;
+                if !primary_down && self.canvas.dragging_pan {
+                    self.canvas.dragging_pan = false;
+                    self.canvas.last_pointer_pos = None;
                 }
             }
         } else if !any_node_dragged {
-            self.dragging_pan = false;
-            self.last_pointer_pos = None;
+            self.canvas.dragging_pan = false;
+            self.canvas.last_pointer_pos = None;
         }
     }
 }
@@ -256,7 +257,7 @@ impl EdgeRenderer for App {
                         mid,
                         egui::Align2::CENTER_CENTER,
                         &s.memo,
-                        egui::FontId::proportional(10.0 * self.zoom.clamp(0.7, 1.2)),
+                        egui::FontId::proportional(10.0 * self.canvas.zoom.clamp(0.7, 1.2)),
                         egui::Color32::DARK_GRAY,
                     );
                 }
@@ -459,20 +460,20 @@ impl FamilyBoxRenderer for App {
                     label_rect.center(),
                     egui::Align2::CENTER_CENTER,
                     &family.name,
-                    egui::FontId::proportional(11.0 * self.zoom.clamp(0.7, 1.2)),
+                    egui::FontId::proportional(11.0 * self.canvas.zoom.clamp(0.7, 1.2)),
                     text_color,
                 );
                 
                 if resp.clicked() {
-                    self.selected_family = Some(family.id);
-                    self.new_family_name = family.name.clone();
+                    self.family_editor.selected_family = Some(family.id);
+                    self.family_editor.new_family_name = family.name.clone();
                     if let Some((r, g, b)) = family.color {
-                        self.new_family_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
+                        self.family_editor.new_family_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
                     }
-                    self.side_tab = SideTab::Families;
-                    let lang = self.language;
+                    self.ui.side_tab = SideTab::Families;
+                    let lang = self.ui.language;
                     let t = |key: &str| Texts::get(key, lang);
-                    self.status = format!("{} {}", t("selected_family"), family.name);
+                    self.file.status = format!("{} {}", t("selected_family"), family.name);
                 }
             }
         }
@@ -486,13 +487,13 @@ impl CanvasRenderer for App {
             let pointer_pos = ui.input(|i| i.pointer.interact_pos());
             
             // キャンバス情報を保存
-            self.canvas_rect = rect;
+            self.canvas.canvas_rect = rect;
 
             // ズーム処理
             ctx.input(|i| {
                 if i.modifiers.ctrl && i.raw_scroll_delta.y.abs() > 0.0 {
                     let factor = (i.raw_scroll_delta.y / 400.0).exp();
-                    self.zoom = (self.zoom * factor).clamp(0.3, 3.0);
+                    self.canvas.zoom = (self.canvas.zoom * factor).clamp(0.3, 3.0);
                 }
             });
 
@@ -504,25 +505,25 @@ impl CanvasRenderer for App {
             };
 
             let base_origin = rect.left_top() + egui::vec2(24.0, 24.0);
-            let origin = if self.show_grid {
-                LayoutEngine::snap_to_grid(base_origin, self.grid_size)
+            let origin = if self.canvas.show_grid {
+                LayoutEngine::snap_to_grid(base_origin, self.canvas.grid_size)
             } else {
                 base_origin
             };
             
             // originを保存
-            self.canvas_origin = origin;
+            self.canvas.canvas_origin = origin;
             
-            if self.show_grid {
-                LayoutEngine::draw_grid(&painter, rect, origin, self.zoom, self.pan, self.grid_size);
+            if self.canvas.show_grid {
+                LayoutEngine::draw_grid(&painter, rect, origin, self.canvas.zoom, self.canvas.pan, self.canvas.grid_size);
             }
 
             let nodes = LayoutEngine::compute_layout(&self.tree, origin);
 
             let mut screen_rects: HashMap<PersonId, egui::Rect> = HashMap::new();
             for n in &nodes {
-                let min = to_screen(n.rect.min, self.zoom, self.pan, origin);
-                let max = to_screen(n.rect.max, self.zoom, self.pan, origin);
+                let min = to_screen(n.rect.min, self.canvas.zoom, self.canvas.pan, origin);
+                let max = to_screen(n.rect.max, self.canvas.zoom, self.canvas.pan, origin);
                 screen_rects.insert(n.id, egui::Rect::from_min_max(min, max));
             }
 
@@ -545,7 +546,7 @@ impl CanvasRenderer for App {
             painter.text(
                 rect.right_top() + egui::vec2(-10.0, 10.0),
                 egui::Align2::RIGHT_TOP,
-                format!("zoom: {:.2}", self.zoom),
+                format!("zoom: {:.2}", self.canvas.zoom),
                 egui::FontId::proportional(12.0),
                 egui::Color32::DARK_GRAY,
             );

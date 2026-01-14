@@ -13,16 +13,16 @@ impl SettingsTabRenderer for App {
         
         ui.label(t("language"));
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.language, Language::Japanese, t("japanese"));
-            ui.radio_value(&mut self.language, Language::English, t("english"));
+            ui.radio_value(&mut self.ui.language, Language::Japanese, t("japanese"));
+            ui.radio_value(&mut self.ui.language, Language::English, t("english"));
         });
         
         ui.separator();
         ui.label(t("grid"));
-        ui.checkbox(&mut self.show_grid, t("show_grid"));
+        ui.checkbox(&mut self.canvas.show_grid, t("show_grid"));
         ui.horizontal(|ui| {
             ui.label(t("grid_size"));
-            ui.add(egui::DragValue::new(&mut self.grid_size)
+            ui.add(egui::DragValue::new(&mut self.canvas.grid_size)
                 .speed(1.0)
                 .range(10.0..=200.0));
         });

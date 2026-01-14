@@ -1,5 +1,6 @@
 mod core;
 mod ui;
+mod state;
 mod app;
 
 use app::App;

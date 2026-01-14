@@ -1,0 +1,151 @@
+use eframe::egui;
+use crate::core::tree::{Gender, PersonId};
+use crate::core::i18n::Language;
+use uuid::Uuid;
+
+/// 人物編集フォームの状態
+#[derive(Default)]
+pub struct PersonEditorState {
+    pub selected: Option<PersonId>,
+    pub new_name: String,
+    pub new_gender: Gender,
+    pub new_birth: String,
+    pub new_memo: String,
+    pub new_deceased: bool,
+    pub new_death: String,
+}
+
+impl PersonEditorState {
+    pub fn clear(&mut self) {
+        self.new_name.clear();
+        self.new_gender = Gender::Unknown;
+        self.new_birth.clear();
+        self.new_memo.clear();
+        self.new_deceased = false;
+        self.new_death.clear();
+    }
+}
+
+/// 関係編集フォームの状態
+#[derive(Default)]
+pub struct RelationEditorState {
+    // 親子関係追加
+    pub parent_pick: Option<PersonId>,
+    pub child_pick: Option<PersonId>,
+    pub relation_kind: String,
+    
+    // 配偶者関係追加
+    pub spouse_pick: Option<PersonId>,
+    pub spouse_memo: String,
+    
+    // 配偶者メモ編集
+    pub editing_spouse_memo: Option<(PersonId, PersonId)>,
+    pub temp_spouse_memo: String,
+    
+    // 親子関係の種類編集
+    pub editing_parent_kind: Option<(PersonId, PersonId)>,
+    pub temp_kind: String,
+}
+
+impl RelationEditorState {
+    pub fn new() -> Self {
+        Self {
+            relation_kind: "biological".to_string(),
+            ..Default::default()
+        }
+    }
+}
+
+/// 家族管理の状態
+#[derive(Default)]
+pub struct FamilyEditorState {
+    pub selected_family: Option<Uuid>,
+    pub new_family_name: String,
+    pub new_family_color: [f32; 3],
+    pub family_member_pick: Option<PersonId>,
+}
+
+impl FamilyEditorState {
+    pub fn new() -> Self {
+        Self {
+            new_family_color: [0.8, 0.8, 1.0],
+            ..Default::default()
+        }
+    }
+}
+
+/// キャンバスの表示・操作状態
+pub struct CanvasState {
+    // 表示
+    pub zoom: f32,
+    pub pan: egui::Vec2,
+    pub dragging_pan: bool,
+    pub last_pointer_pos: Option<egui::Pos2>,
+    
+    // ノードドラッグ
+    pub dragging_node: Option<PersonId>,
+    pub node_drag_start: Option<egui::Pos2>,
+    
+    // グリッド
+    pub show_grid: bool,
+    pub grid_size: f32,
+    
+    // キャンバス情報
+    pub canvas_rect: egui::Rect,
+    pub canvas_origin: egui::Pos2,
+}
+
+impl Default for CanvasState {
+    fn default() -> Self {
+        Self {
+            zoom: 1.0,
+            pan: egui::Vec2::ZERO,
+            dragging_pan: false,
+            last_pointer_pos: None,
+            dragging_node: None,
+            node_drag_start: None,
+            show_grid: true,
+            grid_size: 50.0,
+            canvas_rect: egui::Rect::NOTHING,
+            canvas_origin: egui::Pos2::ZERO,
+        }
+    }
+}
+
+/// ファイル操作の状態
+#[derive(Default)]
+pub struct FileState {
+    pub file_path: String,
+    pub status: String,
+}
+
+impl FileState {
+    pub fn new() -> Self {
+        Self {
+            file_path: "tree.json".to_string(),
+            status: String::new(),
+        }
+    }
+}
+
+/// UI全般の状態
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SideTab {
+    Persons,
+    Families,
+    Settings,
+}
+
+pub struct UiState {
+    pub side_tab: SideTab,
+    pub language: Language,
+}
+
+impl Default for UiState {
+    fn default() -> Self {
+        Self {
+            side_tab: SideTab::Persons,
+            language: Language::Japanese,
+        }
+    }
+}
