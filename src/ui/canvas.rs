@@ -48,7 +48,8 @@ pub trait PanZoomHandler {
 /// エッジ描画トレイト
 pub trait EdgeRenderer {
     fn render_canvas_edges(
-        &self,
+        &mut self,
+        ui: &mut egui::Ui,
         painter: &egui::Painter,
         screen_rects: &HashMap<PersonId, egui::Rect>,
     );
@@ -237,7 +238,8 @@ impl PanZoomHandler for App {
 
 impl EdgeRenderer for App {
     fn render_canvas_edges(
-        &self,
+        &mut self,
+        ui: &mut egui::Ui,
         painter: &egui::Painter,
         screen_rects: &HashMap<PersonId, egui::Rect>,
     ) {
@@ -259,15 +261,18 @@ impl EdgeRenderer for App {
                     egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
                 );
                 
+                // メモがある場合、ツールチップを表示
                 if !s.memo.is_empty() {
                     let mid = egui::pos2((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
-                    painter.text(
+                    let line_rect = egui::Rect::from_center_size(
                         mid,
-                        egui::Align2::CENTER_CENTER,
-                        &s.memo,
-                        egui::FontId::proportional(10.0 * self.canvas.zoom.clamp(0.7, 1.2)),
-                        egui::Color32::DARK_GRAY,
+                        egui::vec2((b.x - a.x).abs().max(20.0), (b.y - a.y).abs().max(20.0))
                     );
+                    let line_id = ui.id().with(("spouse_line", s.person1, s.person2));
+                    let line_response = ui.interact(line_rect, line_id, egui::Sense::hover());
+                    if line_response.hovered() {
+                        line_response.on_hover_text(&s.memo);
+                    }
                 }
             }
         }
@@ -548,7 +553,7 @@ impl CanvasRenderer for App {
             self.handle_pan_zoom(ui, rect, pointer_pos, node_hovered, any_node_dragged);
 
             // エッジ（関係線）描画
-            self.render_canvas_edges(&painter, &screen_rects);
+            self.render_canvas_edges(ui, &painter, &screen_rects);
 
             // 家族の枠描画
             self.render_family_boxes(ui, &painter, &screen_rects);

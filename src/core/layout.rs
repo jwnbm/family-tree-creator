@@ -406,7 +406,7 @@ mod tests {
     #[test]
     fn test_compute_layout_with_manual_position() {
         let mut tree = FamilyTree::default();
-        let id = tree.add_person(
+        let _id = tree.add_person(
             "Positioned".to_string(),
             Gender::Male,
             None,
