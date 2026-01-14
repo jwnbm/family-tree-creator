@@ -67,7 +67,7 @@ pub trait FamilyBoxRenderer {
 impl NodeRenderer for App {
     fn render_canvas_nodes(
         &mut self,
-        _ui: &mut egui::Ui,
+        ui: &mut egui::Ui,
         painter: &egui::Painter,
         nodes: &[crate::core::layout::LayoutNode],
         screen_rects: &HashMap<PersonId, egui::Rect>,
@@ -107,6 +107,14 @@ impl NodeRenderer for App {
                     egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
                     egui::Color32::BLACK,
                 );
+                
+                // ツールチップを表示
+                let node_id = ui.id().with(n.id);
+                let node_response = ui.interact(*r, node_id, egui::Sense::hover());
+                if node_response.hovered() {
+                    let tooltip_text = LayoutEngine::person_tooltip(&self.tree, n.id);
+                    node_response.on_hover_text(tooltip_text);
+                }
             }
         }
     }

@@ -60,8 +60,8 @@ impl LayoutEngine {
             ids.sort_by_key(|id| tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
         }
 
-        let node_w = 180.0;
-        let node_h = 60.0;
+        let node_w = 120.0;
+        let node_h = 40.0;
         let x_gap = 50.0;
         let y_gap = 50.0;
 
@@ -100,7 +100,16 @@ impl LayoutEngine {
     /// 人物のラベル（表示テキスト）を生成
     pub fn person_label(tree: &FamilyTree, id: PersonId) -> String {
         if let Some(p) = tree.persons.get(&id) {
-            let mut label = p.name.clone();
+            p.name.clone()
+        } else {
+            "Unknown".into()
+        }
+    }
+    
+    /// 人物の詳細情報をツールチップ用に生成
+    pub fn person_tooltip(tree: &FamilyTree, id: PersonId) -> String {
+        if let Some(p) = tree.persons.get(&id) {
+            let mut tooltip = format!("名前: {}", p.name);
             
             let calculate_age = |birth: &str, end_date: Option<&str>| -> Option<i32> {
                 let birth_year = birth.split('-').next()?.parse::<i32>().ok()?;
@@ -114,15 +123,15 @@ impl LayoutEngine {
             
             if let Some(b) = &p.birth {
                 if !b.is_empty() {
-                    label.push_str(&format!("\n{}", b));
+                    tooltip.push_str(&format!("\n生年月日: {}", b));
                     
                     if p.deceased {
                         if let Some(age) = calculate_age(b, p.death.as_deref()) {
-                            label.push_str(&format!(" (died at {})", age));
+                            tooltip.push_str(&format!(" (享年 {}歳)", age));
                         }
                     } else {
                         if let Some(age) = calculate_age(b, None) {
-                            label.push_str(&format!(" (age {})", age));
+                            tooltip.push_str(&format!(" ({}歳)", age));
                         }
                     }
                 }
@@ -131,16 +140,20 @@ impl LayoutEngine {
             if p.deceased {
                 if let Some(d) = &p.death {
                     if !d.is_empty() {
-                        label.push_str(&format!("\n† {}", d));
+                        tooltip.push_str(&format!("\n没年月日: {}", d));
                     } else {
-                        label.push_str("\n†");
+                        tooltip.push_str("\n死亡: はい");
                     }
                 } else {
-                    label.push_str("\n†");
+                    tooltip.push_str("\n死亡: はい");
                 }
             }
             
-            label
+            if !p.memo.is_empty() {
+                tooltip.push_str(&format!("\nメモ: {}", p.memo));
+            }
+            
+            tooltip
         } else {
             "Unknown".into()
         }
@@ -224,9 +237,7 @@ mod tests {
         );
         
         let label = LayoutEngine::person_label(&tree, id);
-        assert!(label.contains("John"));
-        assert!(label.contains("1990-05-15"));
-        assert!(label.contains("(age 36)"));
+        assert_eq!(label, "John");
     }
 
     #[test]
@@ -243,10 +254,7 @@ mod tests {
         );
         
         let label = LayoutEngine::person_label(&tree, id);
-        assert!(label.contains("Jane"));
-        assert!(label.contains("1950-01-01"));
-        assert!(label.contains("(died at 70)"));
-        assert!(label.contains("† 2020-12-31"));
+        assert_eq!(label, "Jane");
     }
 
     #[test]
@@ -263,9 +271,64 @@ mod tests {
         );
         
         let label = LayoutEngine::person_label(&tree, id);
-        assert!(label.contains("Bob"));
-        assert!(label.contains("1960-06-10"));
-        assert!(label.contains("†"));
+        assert_eq!(label, "Bob");
+    }
+
+    #[test]
+    fn test_person_tooltip_basic() {
+        let mut tree = FamilyTree::default();
+        let id = tree.add_person(
+            "Test Person".to_string(),
+            Gender::Unknown,
+            None,
+            "".to_string(),
+            false,
+            None,
+            (0.0, 0.0),
+        );
+        
+        let tooltip = LayoutEngine::person_tooltip(&tree, id);
+        assert!(tooltip.contains("名前: Test Person"));
+    }
+
+    #[test]
+    fn test_person_tooltip_with_details() {
+        let mut tree = FamilyTree::default();
+        let id = tree.add_person(
+            "John".to_string(),
+            Gender::Male,
+            Some("1990-05-15".to_string()),
+            "テストメモ".to_string(),
+            false,
+            None,
+            (0.0, 0.0),
+        );
+        
+        let tooltip = LayoutEngine::person_tooltip(&tree, id);
+        assert!(tooltip.contains("名前: John"));
+        assert!(tooltip.contains("生年月日: 1990-05-15"));
+        assert!(tooltip.contains("36歳"));
+        assert!(tooltip.contains("メモ: テストメモ"));
+    }
+
+    #[test]
+    fn test_person_tooltip_deceased() {
+        let mut tree = FamilyTree::default();
+        let id = tree.add_person(
+            "Jane".to_string(),
+            Gender::Female,
+            Some("1950-01-01".to_string()),
+            "".to_string(),
+            true,
+            Some("2020-12-31".to_string()),
+            (0.0, 0.0),
+        );
+        
+        let tooltip = LayoutEngine::person_tooltip(&tree, id);
+        assert!(tooltip.contains("名前: Jane"));
+        assert!(tooltip.contains("生年月日: 1950-01-01"));
+        assert!(tooltip.contains("享年 70歳"));
+        assert!(tooltip.contains("没年月日: 2020-12-31"));
     }
 
     #[test]
