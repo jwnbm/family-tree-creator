@@ -389,8 +389,11 @@ impl FamilyBoxRenderer for App {
             
             if min_x < f32::MAX {
                 let padding = 20.0;
+                let label_height = 24.0;  // ラベルの高さ
+                let label_padding = 8.0;   // ラベルと枠の間のスペース
+                
                 let family_rect = egui::Rect::from_min_max(
-                    egui::pos2(min_x - padding, min_y - padding),
+                    egui::pos2(min_x - padding, min_y - padding - label_height - label_padding),
                     egui::pos2(max_x + padding, max_y + padding)
                 );
                 
@@ -414,8 +417,15 @@ impl FamilyBoxRenderer for App {
                     egui::epaint::StrokeKind::Outside
                 );
                 
-                let label_pos = family_rect.left_top() + egui::vec2(10.0, 5.0);
-                let label_size = egui::vec2(family_rect.width() * 0.5, 20.0);
+                // ラベルを枠の上部外側に配置
+                let label_pos = egui::pos2(
+                    family_rect.left() + padding,
+                    family_rect.top() + 4.0
+                );
+                let label_size = egui::vec2(
+                    (family_rect.width() - padding * 2.0).max(80.0),
+                    label_height - 8.0
+                );
                 let label_rect = egui::Rect::from_min_size(label_pos, label_size);
                 
                 let resp = ui.interact(label_rect, egui::Id::new(("family_label", family.id)), egui::Sense::click());
