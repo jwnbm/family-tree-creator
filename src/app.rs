@@ -44,6 +44,10 @@ pub struct App {
     // 配偶者メモ編集
     editing_spouse_memo: Option<(PersonId, PersonId)>,
     edit_spouse_memo_text: String,
+    
+    // 親子関係の種類編集
+    editing_parent_kind: Option<(PersonId, PersonId)>, // (parent, child)
+    edit_parent_kind_text: String,
 
     // 保存/読込
     file_path: String,
@@ -102,6 +106,9 @@ impl Default for App {
             
             editing_spouse_memo: None,
             edit_spouse_memo_text: String::new(),
+            
+            editing_parent_kind: None,
+            edit_parent_kind_text: String::new(),
 
             file_path: "tree.json".to_string(),
             status: String::new(),
@@ -259,36 +266,6 @@ impl App {
     fn get_person_name(&self, id: &PersonId) -> String {
         self.tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_else(|| "?".into())
     }
-
-    fn show_relation_buttons(
-        &mut self,
-        ui: &mut egui::Ui,
-        label: &str,
-        relations: &[(PersonId, String)],
-        current_id: PersonId,
-        is_parent: bool,
-    ) {
-        if !relations.is_empty() {
-            ui.horizontal(|ui| {
-                ui.label(label);
-                for (id, name) in relations {
-                    if ui.small_button(name).clicked() {
-                        self.selected = Some(*id);
-                    }
-                    let lang = self.language;
-                    let t = |key: &str| Texts::get(key, lang);
-                    if ui.small_button("❌").on_hover_text(t("remove_relation")).clicked() {
-                        if is_parent {
-                            self.tree.remove_parent_child(*id, current_id);
-                        } else {
-                            self.tree.remove_spouse(current_id, *id);
-                        }
-                        self.status = t("relation_removed");
-                    }
-                }
-            });
-        }
-    }
 }
 
 impl App {
@@ -440,9 +417,197 @@ impl App {
                 }
             }
             
-            self.show_relation_buttons(ui, &t("father"), &fathers, sel, true);
-            self.show_relation_buttons(ui, &t("mother"), &mothers, sel, true);
-            self.show_relation_buttons(ui, &t("parent"), &other_parents, sel, true);
+            // 父親の表示（種類編集機能付き）
+            if !fathers.is_empty() {
+                ui.horizontal(|ui| {
+                    ui.label(&t("father"));
+                });
+                for (parent_id, parent_name) in &fathers {
+                    // 関係の種類を取得
+                    let kind = self.tree.edges.iter()
+                        .find(|e| e.parent == *parent_id && e.child == sel)
+                        .map(|e| e.kind.clone())
+                        .unwrap_or_default();
+                    
+                    ui.horizontal(|ui| {
+                        if ui.small_button(parent_name).clicked() {
+                            self.selected = Some(*parent_id);
+                        }
+                        
+                        // 種類の表示
+                        if !kind.is_empty() && kind != "biological" {
+                            ui.label(format!("({})", kind));
+                        }
+                        
+                        // 編集ボタン
+                        if ui.small_button("✏️").on_hover_text(&t("edit_kind")).clicked() {
+                            self.editing_parent_kind = Some((*parent_id, sel));
+                            self.edit_parent_kind_text = kind.clone();
+                        }
+                        
+                        // 削除ボタン
+                        if ui.small_button("❌").on_hover_text(&t("remove_relation")).clicked() {
+                            self.tree.remove_parent_child(*parent_id, sel);
+                            self.status = t("relation_removed");
+                        }
+                    });
+                    
+                    // 種類編集UI
+                    if self.editing_parent_kind == Some((*parent_id, sel)) {
+                        ui.horizontal(|ui| {
+                            ui.label(&t("kind"));
+                            ui.text_edit_singleline(&mut self.edit_parent_kind_text);
+                            if ui.button(&t("save")).clicked() {
+                                // 親子関係の種類を更新
+                                if let Some(edge) = self.tree.edges.iter_mut().find(|e| {
+                                    e.parent == *parent_id && e.child == sel
+                                }) {
+                                    edge.kind = if self.edit_parent_kind_text.trim().is_empty() {
+                                        "biological".to_string()
+                                    } else {
+                                        self.edit_parent_kind_text.trim().to_string()
+                                    };
+                                    self.status = t("relation_kind_updated");
+                                }
+                                self.editing_parent_kind = None;
+                                self.edit_parent_kind_text.clear();
+                            }
+                            if ui.button(&t("cancel")).clicked() {
+                                self.editing_parent_kind = None;
+                                self.edit_parent_kind_text.clear();
+                            }
+                        });
+                    }
+                }
+            }
+            
+            // 母親の表示（種類編集機能付き）
+            if !mothers.is_empty() {
+                ui.horizontal(|ui| {
+                    ui.label(&t("mother"));
+                });
+                for (parent_id, parent_name) in &mothers {
+                    // 関係の種類を取得
+                    let kind = self.tree.edges.iter()
+                        .find(|e| e.parent == *parent_id && e.child == sel)
+                        .map(|e| e.kind.clone())
+                        .unwrap_or_default();
+                    
+                    ui.horizontal(|ui| {
+                        if ui.small_button(parent_name).clicked() {
+                            self.selected = Some(*parent_id);
+                        }
+                        
+                        // 種類の表示
+                        if !kind.is_empty() && kind != "biological" {
+                            ui.label(format!("({})", kind));
+                        }
+                        
+                        // 編集ボタン
+                        if ui.small_button("✏️").on_hover_text(&t("edit_kind")).clicked() {
+                            self.editing_parent_kind = Some((*parent_id, sel));
+                            self.edit_parent_kind_text = kind.clone();
+                        }
+                        
+                        // 削除ボタン
+                        if ui.small_button("❌").on_hover_text(&t("remove_relation")).clicked() {
+                            self.tree.remove_parent_child(*parent_id, sel);
+                            self.status = t("relation_removed");
+                        }
+                    });
+                    
+                    // 種類編集UI
+                    if self.editing_parent_kind == Some((*parent_id, sel)) {
+                        ui.horizontal(|ui| {
+                            ui.label(&t("kind"));
+                            ui.text_edit_singleline(&mut self.edit_parent_kind_text);
+                            if ui.button(&t("save")).clicked() {
+                                // 親子関係の種類を更新
+                                if let Some(edge) = self.tree.edges.iter_mut().find(|e| {
+                                    e.parent == *parent_id && e.child == sel
+                                }) {
+                                    edge.kind = if self.edit_parent_kind_text.trim().is_empty() {
+                                        "biological".to_string()
+                                    } else {
+                                        self.edit_parent_kind_text.trim().to_string()
+                                    };
+                                    self.status = t("relation_kind_updated");
+                                }
+                                self.editing_parent_kind = None;
+                                self.edit_parent_kind_text.clear();
+                            }
+                            if ui.button(&t("cancel")).clicked() {
+                                self.editing_parent_kind = None;
+                                self.edit_parent_kind_text.clear();
+                            }
+                        });
+                    }
+                }
+            }
+            
+            // その他の親の表示（種類編集機能付き）
+            if !other_parents.is_empty() {
+                ui.horizontal(|ui| {
+                    ui.label(&t("parent"));
+                });
+                for (parent_id, parent_name) in &other_parents {
+                    // 関係の種類を取得
+                    let kind = self.tree.edges.iter()
+                        .find(|e| e.parent == *parent_id && e.child == sel)
+                        .map(|e| e.kind.clone())
+                        .unwrap_or_default();
+                    
+                    ui.horizontal(|ui| {
+                        if ui.small_button(parent_name).clicked() {
+                            self.selected = Some(*parent_id);
+                        }
+                        
+                        // 種類の表示
+                        if !kind.is_empty() && kind != "biological" {
+                            ui.label(format!("({})", kind));
+                        }
+                        
+                        // 編集ボタン
+                        if ui.small_button("✏️").on_hover_text(&t("edit_kind")).clicked() {
+                            self.editing_parent_kind = Some((*parent_id, sel));
+                            self.edit_parent_kind_text = kind.clone();
+                        }
+                        
+                        // 削除ボタン
+                        if ui.small_button("❌").on_hover_text(&t("remove_relation")).clicked() {
+                            self.tree.remove_parent_child(*parent_id, sel);
+                            self.status = t("relation_removed");
+                        }
+                    });
+                    
+                    // 種類編集UI
+                    if self.editing_parent_kind == Some((*parent_id, sel)) {
+                        ui.horizontal(|ui| {
+                            ui.label(&t("kind"));
+                            ui.text_edit_singleline(&mut self.edit_parent_kind_text);
+                            if ui.button(&t("save")).clicked() {
+                                // 親子関係の種類を更新
+                                if let Some(edge) = self.tree.edges.iter_mut().find(|e| {
+                                    e.parent == *parent_id && e.child == sel
+                                }) {
+                                    edge.kind = if self.edit_parent_kind_text.trim().is_empty() {
+                                        "biological".to_string()
+                                    } else {
+                                        self.edit_parent_kind_text.trim().to_string()
+                                    };
+                                    self.status = t("relation_kind_updated");
+                                }
+                                self.editing_parent_kind = None;
+                                self.edit_parent_kind_text.clear();
+                            }
+                            if ui.button(&t("cancel")).clicked() {
+                                self.editing_parent_kind = None;
+                                self.edit_parent_kind_text.clear();
+                            }
+                        });
+                    }
+                }
+            }
             
             // 配偶者の表示（メモ付き）
             let spouse_ids = self.tree.spouses_of(sel);
