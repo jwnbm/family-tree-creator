@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use eframe::egui;
-use crate::tree::{FamilyTree, PersonId};
+use crate::core::tree::{FamilyTree, PersonId};
 
 /// 画面上のノード情報
 #[derive(Debug, Clone)]
@@ -189,7 +189,7 @@ impl LayoutEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tree::{FamilyTree, Gender};
+    use crate::core::tree::{FamilyTree, Gender};
 
     #[test]
     fn test_person_label_basic() {

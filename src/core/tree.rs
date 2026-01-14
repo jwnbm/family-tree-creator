@@ -88,6 +88,11 @@ impl FamilyTree {
         self.persons.remove(&id);
         self.edges.retain(|e| e.parent != id && e.child != id);
         self.spouses.retain(|s| s.person1 != id && s.person2 != id);
+        
+        // 家族グループからも削除
+        for family in &mut self.families {
+            family.members.retain(|member_id| *member_id != id);
+        }
     }
 
     pub fn add_parent_child(&mut self, parent: PersonId, child: PersonId, kind: String) {
@@ -411,5 +416,103 @@ mod tests {
         assert!(roots.contains(&orphan));
         assert!(!roots.contains(&parent));
         assert!(!roots.contains(&child));
+    }
+
+    #[test]
+    fn test_family_management() {
+        let mut tree = FamilyTree::default();
+        let person1 = tree.add_person("Father".to_string(), Gender::Male, None, "".to_string(), false, None, (0.0, 0.0));
+        let person2 = tree.add_person("Mother".to_string(), Gender::Female, None, "".to_string(), false, None, (200.0, 0.0));
+        let person3 = tree.add_person("Child".to_string(), Gender::Unknown, None, "".to_string(), false, None, (100.0, 100.0));
+
+        // 家族グループを追加
+        let family_id = tree.add_family("Test Family".to_string(), Some((100, 150, 200)));
+        assert_eq!(tree.families.len(), 1);
+        assert_eq!(tree.families[0].name, "Test Family");
+        assert_eq!(tree.families[0].color, Some((100, 150, 200)));
+
+        // メンバーを追加
+        tree.add_member_to_family(family_id, person1);
+        tree.add_member_to_family(family_id, person2);
+        tree.add_member_to_family(family_id, person3);
+        
+        let family = tree.families.iter().find(|f| f.id == family_id).unwrap();
+        assert_eq!(family.members.len(), 3);
+        assert!(family.members.contains(&person1));
+        assert!(family.members.contains(&person2));
+        assert!(family.members.contains(&person3));
+
+        // メンバーを削除
+        tree.remove_member_from_family(family_id, person3);
+        let family = tree.families.iter().find(|f| f.id == family_id).unwrap();
+        assert_eq!(family.members.len(), 2);
+        assert!(!family.members.contains(&person3));
+
+        // 家族グループを削除
+        tree.remove_family(family_id);
+        assert_eq!(tree.families.len(), 0);
+    }
+
+    #[test]
+    fn test_remove_person_updates_families() {
+        let mut tree = FamilyTree::default();
+        let person1 = tree.add_person("Person1".to_string(), Gender::Male, None, "".to_string(), false, None, (0.0, 0.0));
+        let person2 = tree.add_person("Person2".to_string(), Gender::Female, None, "".to_string(), false, None, (200.0, 0.0));
+        
+        let family_id = tree.add_family("Family".to_string(), None);
+        tree.add_member_to_family(family_id, person1);
+        tree.add_member_to_family(family_id, person2);
+        
+        // 人物を削除すると家族からも削除される
+        tree.remove_person(person1);
+        
+        let family = tree.families.iter().find(|f| f.id == family_id).unwrap();
+        assert_eq!(family.members.len(), 1);
+        assert!(!family.members.contains(&person1));
+        assert!(family.members.contains(&person2));
+    }
+
+    #[test]
+    fn test_deceased_flag() {
+        let mut tree = FamilyTree::default();
+        let person = tree.add_person(
+            "Test Person".to_string(),
+            Gender::Male,
+            Some("1950-01-01".to_string()),
+            "Test memo".to_string(),
+            true,
+            Some("2020-12-31".to_string()),
+            (0.0, 0.0)
+        );
+
+        let p = tree.persons.get(&person).unwrap();
+        assert!(p.deceased);
+        assert_eq!(p.death, Some("2020-12-31".to_string()));
+        assert_eq!(p.birth, Some("1950-01-01".to_string()));
+    }
+
+    #[test]
+    fn test_position_persistence() {
+        let mut tree = FamilyTree::default();
+        let person = tree.add_person(
+            "Test".to_string(),
+            Gender::Unknown,
+            None,
+            "".to_string(),
+            false,
+            None,
+            (123.45, 678.90)
+        );
+
+        let p = tree.persons.get(&person).unwrap();
+        assert_eq!(p.position, (123.45, 678.90));
+
+        // 位置を更新
+        if let Some(p) = tree.persons.get_mut(&person) {
+            p.position = (999.0, 111.0);
+        }
+
+        let p = tree.persons.get(&person).unwrap();
+        assert_eq!(p.position, (999.0, 111.0));
     }
 }

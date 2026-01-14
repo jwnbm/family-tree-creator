@@ -181,3 +181,52 @@ impl Texts {
         }.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_japanese_translation() {
+        assert_eq!(Texts::get("title", Language::Japanese), "家系図 (MVP)");
+        assert_eq!(Texts::get("save", Language::Japanese), "保存");
+        assert_eq!(Texts::get("load", Language::Japanese), "読込");
+        assert_eq!(Texts::get("male", Language::Japanese), "男性");
+        assert_eq!(Texts::get("female", Language::Japanese), "女性");
+    }
+
+    #[test]
+    fn test_english_translation() {
+        assert_eq!(Texts::get("title", Language::English), "Family Tree (MVP)");
+        assert_eq!(Texts::get("save", Language::English), "Save");
+        assert_eq!(Texts::get("load", Language::English), "Load");
+        assert_eq!(Texts::get("male", Language::English), "Male");
+        assert_eq!(Texts::get("female", Language::English), "Female");
+    }
+
+    #[test]
+    fn test_unknown_key() {
+        assert_eq!(Texts::get("nonexistent_key", Language::Japanese), "nonexistent_key");
+        assert_eq!(Texts::get("nonexistent_key", Language::English), "nonexistent_key");
+    }
+
+    #[test]
+    fn test_language_equality() {
+        assert_eq!(Language::Japanese, Language::Japanese);
+        assert_eq!(Language::English, Language::English);
+        assert_ne!(Language::Japanese, Language::English);
+    }
+
+    #[test]
+    fn test_all_common_keys() {
+        let keys = vec!["title", "save", "load", "persons", "families", "settings"];
+        
+        for key in keys {
+            let ja = Texts::get(key, Language::Japanese);
+            let en = Texts::get(key, Language::English);
+            
+            assert_ne!(ja, key, "Japanese translation missing for key: {}", key);
+            assert_ne!(en, key, "English translation missing for key: {}", key);
+        }
+    }
+}

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::fs;
 
 use eframe::egui;
-use crate::tree::{FamilyTree, Gender, PersonId};
-use crate::layout::LayoutEngine;
-use crate::i18n::{Language, Texts};
+use crate::core::tree::{FamilyTree, Gender, PersonId};
+use crate::core::layout::LayoutEngine;
+use crate::core::i18n::{Language, Texts};
 use uuid::Uuid;
 
 // 定数
@@ -718,7 +718,7 @@ impl App {
         &mut self,
         _ui: &mut egui::Ui,
         painter: &egui::Painter,
-        nodes: &[crate::layout::LayoutNode],
+        nodes: &[crate::core::layout::LayoutNode],
         screen_rects: &HashMap<PersonId, egui::Rect>,
     ) {
         for n in nodes {
@@ -764,7 +764,7 @@ impl App {
     fn handle_node_interactions(
         &mut self,
         ui: &mut egui::Ui,
-        nodes: &[crate::layout::LayoutNode],
+        nodes: &[crate::core::layout::LayoutNode],
         screen_rects: &HashMap<PersonId, egui::Rect>,
         pointer_pos: Option<egui::Pos2>,
         origin: egui::Pos2,
