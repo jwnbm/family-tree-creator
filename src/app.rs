@@ -70,6 +70,10 @@ pub struct App {
     new_family_name: String,
     new_family_color: [f32; 3],
     family_member_pick: Option<PersonId>,
+    
+    // キャンバス情報
+    canvas_rect: egui::Rect,
+    canvas_origin: egui::Pos2,
 }
 
 impl Default for App {
@@ -114,6 +118,9 @@ impl Default for App {
             new_family_color: [0.8, 0.8, 1.0],
             selected_family: None,
             family_member_pick: None,
+            
+            canvas_rect: egui::Rect::NOTHING,
+            canvas_origin: egui::Pos2::ZERO,
         }
     }
 }
@@ -303,10 +310,14 @@ impl App {
 
         // Add New Button
         if ui.button(t("add_new_person")).clicked() {
-            // 既存の人数に応じて位置をずらす
-            let count = self.tree.persons.len();
-            let x = (count % 5) as f32 * 250.0;
-            let y = (count / 5) as f32 * 120.0;
+            // 現在表示されているキャンバスの左上を計算
+            let visible_left_top = if self.canvas_rect != egui::Rect::NOTHING {
+                let screen_pos = self.canvas_rect.left_top() + egui::vec2(50.0, 50.0);
+                let world_pos = self.canvas_origin + (screen_pos - self.canvas_origin - self.pan) / self.zoom;
+                (world_pos.x, world_pos.y)
+            } else {
+                (100.0, 100.0)
+            };
             
             let id = self.tree.add_person(
                 t("new_person"),
@@ -315,7 +326,7 @@ impl App {
                 String::new(),
                 false,
                 None,
-                (x, y),
+                visible_left_top,
             );
             self.selected = Some(id);
             if let Some(person) = self.tree.persons.get(&id) {
@@ -700,20 +711,6 @@ impl App {
                 .speed(1.0)
                 .range(10.0..=200.0));
         });
-        
-        ui.separator();
-        ui.label(t("layout"));
-        if ui.button(t("reset_positions")).clicked() {
-            // 自動レイアウトの座標を計算して設定
-            let origin = egui::pos2(0.0, 0.0);
-            let nodes = LayoutEngine::compute_layout(&self.tree, origin);
-            for node in nodes {
-                if let Some(person) = self.tree.persons.get_mut(&node.id) {
-                    person.position = (node.rect.left(), node.rect.top());
-                }
-            }
-            self.status = t("positions_reset");
-        }
     }
 
     /// キャンバスのノード描画
@@ -1132,6 +1129,9 @@ impl App {
         egui::CentralPanel::default().show(ctx, |ui| {
             let (rect, _response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
             let pointer_pos = ui.input(|i| i.pointer.interact_pos());
+            
+            // キャンバス情報を保存
+            self.canvas_rect = rect;
 
             // ズーム処理
             ctx.input(|i| {
@@ -1154,6 +1154,9 @@ impl App {
             } else {
                 base_origin
             };
+            
+            // originを保存
+            self.canvas_origin = origin;
             
             if self.show_grid {
                 LayoutEngine::draw_grid(&painter, rect, origin, self.zoom, self.pan, self.grid_size);
