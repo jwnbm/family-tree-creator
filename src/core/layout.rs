@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use eframe::egui;
 use crate::core::tree::{FamilyTree, PersonId};
+use crate::core::i18n::{Language, Texts};
 
 /// 画面上のノード情報
 #[derive(Debug, Clone)]
@@ -107,9 +108,9 @@ impl LayoutEngine {
     }
     
     /// 人物の詳細情報をツールチップ用に生成
-    pub fn person_tooltip(tree: &FamilyTree, id: PersonId) -> String {
+    pub fn person_tooltip(tree: &FamilyTree, id: PersonId, lang: Language) -> String {
         if let Some(p) = tree.persons.get(&id) {
-            let mut tooltip = format!("名前: {}", p.name);
+            let mut tooltip = format!("{}: {}", Texts::get("tooltip_name", lang), p.name);
             
             let calculate_age = |birth: &str, end_date: Option<&str>| -> Option<i32> {
                 let birth_year = birth.split('-').next()?.parse::<i32>().ok()?;
@@ -123,15 +124,15 @@ impl LayoutEngine {
             
             if let Some(b) = &p.birth {
                 if !b.is_empty() {
-                    tooltip.push_str(&format!("\n生年月日: {}", b));
+                    tooltip.push_str(&format!("\n{}: {}", Texts::get("tooltip_birth", lang), b));
                     
                     if p.deceased {
                         if let Some(age) = calculate_age(b, p.death.as_deref()) {
-                            tooltip.push_str(&format!(" (享年 {}歳)", age));
+                            tooltip.push_str(&format!(" ({} {}{}) ", Texts::get("tooltip_died_at", lang), age, Texts::get("tooltip_age", lang)));
                         }
                     } else {
                         if let Some(age) = calculate_age(b, None) {
-                            tooltip.push_str(&format!(" ({}歳)", age));
+                            tooltip.push_str(&format!(" ({}{})", age, Texts::get("tooltip_age", lang)));
                         }
                     }
                 }
@@ -140,17 +141,17 @@ impl LayoutEngine {
             if p.deceased {
                 if let Some(d) = &p.death {
                     if !d.is_empty() {
-                        tooltip.push_str(&format!("\n没年月日: {}", d));
+                        tooltip.push_str(&format!("\n{}: {}", Texts::get("tooltip_death", lang), d));
                     } else {
-                        tooltip.push_str("\n死亡: はい");
+                        tooltip.push_str(&format!("\n{}: {}", Texts::get("tooltip_deceased", lang), Texts::get("tooltip_yes", lang)));
                     }
                 } else {
-                    tooltip.push_str("\n死亡: はい");
+                    tooltip.push_str(&format!("\n{}: {}", Texts::get("tooltip_deceased", lang), Texts::get("tooltip_yes", lang)));
                 }
             }
             
             if !p.memo.is_empty() {
-                tooltip.push_str(&format!("\nメモ: {}", p.memo));
+                tooltip.push_str(&format!("\n{}: {}", Texts::get("tooltip_memo", lang), p.memo));
             }
             
             tooltip
@@ -287,8 +288,11 @@ mod tests {
             (0.0, 0.0),
         );
         
-        let tooltip = LayoutEngine::person_tooltip(&tree, id);
-        assert!(tooltip.contains("名前: Test Person"));
+        let tooltip_ja = LayoutEngine::person_tooltip(&tree, id, Language::Japanese);
+        assert!(tooltip_ja.contains("名前: Test Person"));
+        
+        let tooltip_en = LayoutEngine::person_tooltip(&tree, id, Language::English);
+        assert!(tooltip_en.contains("Name: Test Person"));
     }
 
     #[test]
@@ -304,11 +308,17 @@ mod tests {
             (0.0, 0.0),
         );
         
-        let tooltip = LayoutEngine::person_tooltip(&tree, id);
-        assert!(tooltip.contains("名前: John"));
-        assert!(tooltip.contains("生年月日: 1990-05-15"));
-        assert!(tooltip.contains("36歳"));
-        assert!(tooltip.contains("メモ: テストメモ"));
+        let tooltip_ja = LayoutEngine::person_tooltip(&tree, id, Language::Japanese);
+        assert!(tooltip_ja.contains("名前: John"));
+        assert!(tooltip_ja.contains("生年月日: 1990-05-15"));
+        assert!(tooltip_ja.contains("36歳"));
+        assert!(tooltip_ja.contains("メモ: テストメモ"));
+        
+        let tooltip_en = LayoutEngine::person_tooltip(&tree, id, Language::English);
+        assert!(tooltip_en.contains("Name: John"));
+        assert!(tooltip_en.contains("Birth: 1990-05-15"));
+        assert!(tooltip_en.contains("36years old"));
+        assert!(tooltip_en.contains("Memo: テストメモ"));
     }
 
     #[test]
@@ -324,11 +334,17 @@ mod tests {
             (0.0, 0.0),
         );
         
-        let tooltip = LayoutEngine::person_tooltip(&tree, id);
-        assert!(tooltip.contains("名前: Jane"));
-        assert!(tooltip.contains("生年月日: 1950-01-01"));
-        assert!(tooltip.contains("享年 70歳"));
-        assert!(tooltip.contains("没年月日: 2020-12-31"));
+        let tooltip_ja = LayoutEngine::person_tooltip(&tree, id, Language::Japanese);
+        assert!(tooltip_ja.contains("名前: Jane"));
+        assert!(tooltip_ja.contains("生年月日: 1950-01-01"));
+        assert!(tooltip_ja.contains("享年 70歳"));
+        assert!(tooltip_ja.contains("没年月日: 2020-12-31"));
+        
+        let tooltip_en = LayoutEngine::person_tooltip(&tree, id, Language::English);
+        assert!(tooltip_en.contains("Name: Jane"));
+        assert!(tooltip_en.contains("Birth: 1950-01-01"));
+        assert!(tooltip_en.contains("died at 70years old"));
+        assert!(tooltip_en.contains("Death: 2020-12-31"));
     }
 
     #[test]

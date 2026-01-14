@@ -104,6 +104,14 @@ impl Texts {
             "selected_family" => "選択した家族:",
             "new_person" => "New Person",
             "new_family" => "New Family",
+            "tooltip_name" => "名前",
+            "tooltip_birth" => "生年月日",
+            "tooltip_death" => "没年月日",
+            "tooltip_age" => "歳",
+            "tooltip_died_at" => "享年",
+            "tooltip_deceased" => "死亡",
+            "tooltip_yes" => "はい",
+            "tooltip_memo" => "メモ",
             _ => key,
         }.to_string()
     }
@@ -193,6 +201,14 @@ impl Texts {
             "selected_family" => "Selected family:",
             "new_person" => "New Person",
             "new_family" => "New Family",
+            "tooltip_name" => "Name",
+            "tooltip_birth" => "Birth",
+            "tooltip_death" => "Death",
+            "tooltip_age" => "years old",
+            "tooltip_died_at" => "died at",
+            "tooltip_deceased" => "Deceased",
+            "tooltip_yes" => "Yes",
+            "tooltip_memo" => "Memo",
             _ => key,
         }.to_string()
     }

@@ -112,7 +112,7 @@ impl NodeRenderer for App {
                 let node_id = ui.id().with(n.id);
                 let node_response = ui.interact(*r, node_id, egui::Sense::hover());
                 if node_response.hovered() {
-                    let tooltip_text = LayoutEngine::person_tooltip(&self.tree, n.id);
+                    let tooltip_text = LayoutEngine::person_tooltip(&self.tree, n.id, self.ui.language);
                     node_response.on_hover_text(tooltip_text);
                 }
             }
