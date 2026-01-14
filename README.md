@@ -31,6 +31,8 @@ English | [日本語](README_ja.md)
 - **Deceased Status**: Special markers (†) for deceased family members
 - **Age Calculation**: Automatic age calculation for living and deceased persons
 - **Relationship Tracking**: Parents (biological/adoptive), children, and spouses
+- **Editable Relations**: Edit relationship kinds (biological, adoptive, etc.) and spouse memos inline
+- **Smart Positioning**: New persons appear at the top-left of the current canvas view
 
 ### Family Groups
 - **Color-coded Groups**: Organize people into families with custom colors
@@ -45,8 +47,9 @@ English | [日本語](README_ja.md)
 
 ### Data Management
 - **JSON Storage**: Save and load family trees in human-readable JSON format
-- **Sample Data**: Quick-start with pre-populated example family tree
+- **Sample Data**: Quick-start with pre-populated example family tree (16 people, 4 generations)
 - **Position Memory**: Manual node positions are preserved
+- **Comprehensive Tests**: 29 unit tests covering core functionality
 
 ## 🚀 Getting Started
 
@@ -96,8 +99,13 @@ cargo run --release
 #### Adding Relationships
 
 1. Select a person from the list
-2. Scroll to the **Add Relations** section
-3. Choose the type of relationship:
+2. Scroll to the **Relations** section
+3. View existing relationships:
+   - **Parents**: Father, mother, or other parents with relationship kind
+   - **Spouses**: With marriage date/memo
+   - Click ✏️ button to edit relationship kind or spouse memo
+   - Click ❌ button to remove the relationship
+4. Add new relationships:
    - **Add Parent**: Select parent and specify relationship kind (biological/adoptive)
    - **Add Child**: Select child and specify relationship kind
    - **Add Spouse**: Select spouse and add marriage date/memo
@@ -131,8 +139,12 @@ family-tree-creator/
 ├── src/
 │   ├── main.rs       # Application entry point
 │   ├── app.rs        # Main application logic and UI
-│   ├── tree.rs       # Data model (Person, Family, Relationships)
-│   └── layout.rs     # Layout engine and rendering utilities
+│   └── core/         # Core logic modules
+│       ├── mod.rs    # Module declarations
+│       ├── tree.rs   # Data model (Person, Family, Relationships)
+│       ├── layout.rs # Layout engine and rendering utilities
+│       └── i18n.rs   # Multilingual support (Japanese/English)
+├── screenshots/  # Application screenshots
 ├── Cargo.toml        # Project dependencies
 ├── TODO.md           # Future feature roadmap
 └── README.md         # This file
