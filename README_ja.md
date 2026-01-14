@@ -7,6 +7,17 @@ Rustとeguiで構築された、モダンでインタラクティブな家系図
 
 [English](README.md) | 日本語
 
+## 📸 スクリーンショット
+
+![メインキャンバス](screenshots/main-view.png)
+*4世代のサンプル家系図を表示したインタラクティブキャンバス*
+
+![個人エディタ](screenshots/person-editor.png)
+*関係管理機能を備えた個人エディタ*
+
+![家族グループ](screenshots/family-groups.png)
+*視覚的な境界線で色分けされた家族グループ*
+
 ## 🌟 機能
 
 ### コア機能

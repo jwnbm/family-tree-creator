@@ -7,6 +7,17 @@ A modern, interactive family tree visualization application built with Rust and 
 
 English | [日本語](README_ja.md)
 
+## 📸 Screenshots
+
+![Main Canvas View](screenshots/main-view.png)
+*Interactive canvas with sample family tree showing 4 generations*
+
+![Person Editor](screenshots/person-editor.png)
+*Person editor with relationship management*
+
+![Family Groups](screenshots/family-groups.png)
+*Color-coded family groups with visual boundaries*
+
 ## 🌟 Features
 
 ### Core Functionality

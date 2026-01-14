@@ -1,6 +1,7 @@
 mod tree;
 mod layout;
 mod app;
+mod i18n;
 
 use app::App;
 
