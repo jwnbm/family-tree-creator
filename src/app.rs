@@ -120,5 +120,16 @@ impl eframe::App for App {
 
         // キャンバス
         self.render_canvas(ctx);
+
+        // ステータスバー
+        egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if !self.file.status.is_empty() {
+                    ui.label(&self.file.status);
+                } else {
+                    ui.label(""); // 空の場合でもスペースを確保
+                }
+            });
+        });
     }
 }
