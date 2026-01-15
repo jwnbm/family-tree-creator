@@ -738,24 +738,46 @@ impl EventRelationRenderer for App {
                 let t_person = t_x_person.min(t_y_person);
                 let end = person_center - dir * (t_person + 2.0); // 2ピクセルの余白を追加
 
-                let stroke = match relation.relation_type {
-                    EventRelationType::Line => egui::Stroke::new(EDGE_STROKE_WIDTH, event_color),
-                    EventRelationType::Arrow => egui::Stroke::new(EDGE_STROKE_WIDTH, event_color),
-                };
+                let stroke = egui::Stroke::new(EDGE_STROKE_WIDTH, event_color);
 
-                painter.line_segment([start, end], stroke);
-
-                // 矢印の場合は矢印を描画
-                if relation.relation_type == EventRelationType::Arrow {
-                    let dir = (end - start).normalized();
-                    let arrow_size = 8.0 * self.canvas.zoom;
-                    let arrow_angle = std::f32::consts::PI / 6.0;
-
-                    let left = end - dir.rot90() * arrow_size * arrow_angle.sin() - dir * arrow_size * arrow_angle.cos();
-                    let right = end + dir.rot90() * arrow_size * arrow_angle.sin() - dir * arrow_size * arrow_angle.cos();
-
-                    painter.line_segment([end, left], stroke);
-                    painter.line_segment([end, right], stroke);
+                match relation.relation_type {
+                    EventRelationType::Line => {
+                        painter.line_segment([start, end], stroke);
+                    }
+                    EventRelationType::ArrowToPerson => {
+                        // イベント → 人物（矢印は人物側）
+                        painter.line_segment([start, end], stroke);
+                        let arrow_dir = dir;
+                        let arrow_size = 10.0;
+                        let arrow_angle = std::f32::consts::PI / 6.0;
+                        let perp1 = egui::vec2(
+                            arrow_dir.x * arrow_angle.cos() - arrow_dir.y * arrow_angle.sin(),
+                            arrow_dir.x * arrow_angle.sin() + arrow_dir.y * arrow_angle.cos(),
+                        );
+                        let perp2 = egui::vec2(
+                            arrow_dir.x * arrow_angle.cos() + arrow_dir.y * arrow_angle.sin(),
+                            -arrow_dir.x * arrow_angle.sin() + arrow_dir.y * arrow_angle.cos(),
+                        );
+                        painter.line_segment([end, end - perp1 * arrow_size], stroke);
+                        painter.line_segment([end, end - perp2 * arrow_size], stroke);
+                    }
+                    EventRelationType::ArrowToEvent => {
+                        // 人物 → イベント（矢印はイベント側）
+                        painter.line_segment([start, end], stroke);
+                        let arrow_dir = -dir;
+                        let arrow_size = 10.0;
+                        let arrow_angle = std::f32::consts::PI / 6.0;
+                        let perp1 = egui::vec2(
+                            arrow_dir.x * arrow_angle.cos() - arrow_dir.y * arrow_angle.sin(),
+                            arrow_dir.x * arrow_angle.sin() + arrow_dir.y * arrow_angle.cos(),
+                        );
+                        let perp2 = egui::vec2(
+                            arrow_dir.x * arrow_angle.cos() + arrow_dir.y * arrow_angle.sin(),
+                            -arrow_dir.x * arrow_angle.sin() + arrow_dir.y * arrow_angle.cos(),
+                        );
+                        painter.line_segment([start, start - perp1 * arrow_size], stroke);
+                        painter.line_segment([start, start - perp2 * arrow_size], stroke);
+                    }
                 }
 
                 // メモのツールチップ

@@ -74,8 +74,10 @@ pub struct Event {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum EventRelationType {
-    Line,   // 直線
-    Arrow,  // 矢印
+    Line,           // 直線
+    #[serde(alias = "Arrow")]
+    ArrowToPerson,  // イベント → 人物
+    ArrowToEvent,   // 人物 → イベント
 }
 
 impl Default for EventRelationType {
@@ -681,7 +683,7 @@ mod tests {
         let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0), (255, 255, 200));
 
         tree.add_event_relation(event, person, EventRelationType::Line, "memo1".to_string());
-        tree.add_event_relation(event, person, EventRelationType::Arrow, "memo2".to_string());
+        tree.add_event_relation(event, person, EventRelationType::ArrowToPerson, "memo2".to_string());
 
         // 同じイベントと人物のペアは追加されない
         assert_eq!(tree.event_relations.len(), 1);
@@ -708,7 +710,7 @@ mod tests {
         let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0), (255, 255, 200));
 
         tree.add_event_relation(event, person1, EventRelationType::Line, "".to_string());
-        tree.add_event_relation(event, person2, EventRelationType::Arrow, "".to_string());
+        tree.add_event_relation(event, person2, EventRelationType::ArrowToPerson, "".to_string());
         assert_eq!(tree.event_relations.len(), 2);
 
         // イベントを削除すると関連する関係も削除される
@@ -725,7 +727,7 @@ mod tests {
         let event2 = tree.add_event("Event2".to_string(), None, "".to_string(), (200.0, 200.0), (255, 255, 200));
 
         tree.add_event_relation(event1, person1, EventRelationType::Line, "".to_string());
-        tree.add_event_relation(event1, person2, EventRelationType::Arrow, "".to_string());
+        tree.add_event_relation(event1, person2, EventRelationType::ArrowToPerson, "".to_string());
         tree.add_event_relation(event2, person1, EventRelationType::Line, "".to_string());
 
         let relations = tree.event_relations_of(event1);
@@ -746,8 +748,13 @@ mod tests {
         assert_eq!(relation.relation_type, EventRelationType::Line);
 
         tree.remove_event_relation(event, person);
-        tree.add_event_relation(event, person, EventRelationType::Arrow, "arrow memo".to_string());
+        tree.add_event_relation(event, person, EventRelationType::ArrowToPerson, "arrow to person".to_string());
         let relation = &tree.event_relations[0];
-        assert_eq!(relation.relation_type, EventRelationType::Arrow);
+        assert_eq!(relation.relation_type, EventRelationType::ArrowToPerson);
+
+        tree.remove_event_relation(event, person);
+        tree.add_event_relation(event, person, EventRelationType::ArrowToEvent, "arrow to event".to_string());
+        let relation = &tree.event_relations[0];
+        assert_eq!(relation.relation_type, EventRelationType::ArrowToEvent);
     }
 }

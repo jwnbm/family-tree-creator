@@ -133,7 +133,8 @@ impl EventsTabRenderer for App {
                 let person_name = self.get_person_name(&person_id);
                 let relation_type_str = match relation_type {
                     EventRelationType::Line => t("line"),
-                    EventRelationType::Arrow => t("arrow"),
+                    EventRelationType::ArrowToPerson => t("arrow_to_person"),
+                    EventRelationType::ArrowToEvent => t("arrow_to_event"),
                 };
                 
                 ui.horizontal(|ui| {
@@ -169,7 +170,8 @@ impl EventsTabRenderer for App {
             ui.label(t("relation_type"));
             ui.horizontal(|ui| {
                 ui.radio_value(&mut self.event_editor.relation_type, EventRelationType::Line, t("line"));
-                ui.radio_value(&mut self.event_editor.relation_type, EventRelationType::Arrow, t("arrow"));
+                ui.radio_value(&mut self.event_editor.relation_type, EventRelationType::ArrowToPerson, t("arrow_to_person"));
+                ui.radio_value(&mut self.event_editor.relation_type, EventRelationType::ArrowToEvent, t("arrow_to_event"));
             });
             
             ui.label(t("memo"));
