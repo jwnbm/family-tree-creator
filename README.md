@@ -10,13 +10,16 @@ English | [日本語](README_ja.md)
 ## 📸 Screenshots
 
 ![Main Canvas View](screenshots/main-view.png)
-*Interactive canvas with sample family tree showing 4 generations*
+*Interactive canvas showing persons, families, and events across 4 generations*
 
 ![Person Editor](screenshots/person-editor.png)
-*Person editor with relationship management*
+*Person management with relationship editor and inline editing*
 
 ![Family Groups](screenshots/family-groups.png)
-*Color-coded family groups with visual boundaries*
+*Family group editor with color customization and member management*
+
+![Events](screenshots/events.png)
+*Event management with timeline events and person relations*
 
 ## 🌟 Features
 
@@ -39,9 +42,16 @@ English | [日本語](README_ja.md)
 - **Visual Boundaries**: Family groups displayed with colored backgrounds
 - **Flexible Membership**: People can belong to multiple families
 
+### Event Management
+- **Timeline Events**: Create events with names, dates, descriptions, and custom colors
+- **Event-Person Relations**: Link events to people with visual connections
+- **Flexible Arrows**: Choose between lines, arrows to person (→), or arrows from person (←)
+- **Smart Positioning**: New events appear at the top-left of the current canvas view
+- **Draggable Nodes**: Move event nodes independently on the canvas
+
 ### User Interface
 - **Bilingual Support**: Japanese and English interface
-- **Three-panel Layout**: Persons, Families, and Settings tabs
+- **Four-panel Layout**: Persons, Families, Events, and Settings tabs
 - **Grid Alignment**: Optional grid display with snap-to-grid functionality
 - **Dark/Light Themes**: Follows system theme preferences
 
@@ -49,12 +59,14 @@ English | [日本語](README_ja.md)
 - **JSON Storage**: Save and load family trees in human-readable JSON format
 - **Sample Data**: Pre-populated example family tree available at `examples/sample.json` (13 people, 4 generations)
 - **Position Memory**: Manual node positions are preserved
-- **Comprehensive Tests**: 29 unit tests covering core functionality
+- **Comprehensive Tests**: 40 unit tests covering core functionality
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
+- **Operating System**: Windows (currently supported)
+  - Other platforms (macOS, Linux) may work but are not officially tested
 - [Rust](https://www.rust-lang.org/tools/install) (2024 edition or later)
 - Cargo (comes with Rust)
 
@@ -118,6 +130,23 @@ cargo run --release
 4. Select family members from the dropdown
 5. Click **Update** to save
 
+#### Adding Events
+
+1. Navigate to the **Events** tab
+2. Click **➕ Add New Event**
+3. Fill in the details:
+   - **Name**: Event name
+   - **Date**: Format `YYYY-MM-DD` (optional)
+   - **Description**: Event details
+   - **Color**: Choose a custom color
+4. Click **Add** to create the event
+5. Link people to events:
+   - Select the event
+   - Choose a person from the dropdown
+   - Select relation type: Line, Arrow → Person, or Arrow ← Person
+   - Add optional memo
+   - Click **Add** to create the link
+
 ### Canvas Controls
 
 - **Pan**: Click and drag on empty canvas space
@@ -142,6 +171,7 @@ family-tree-creator/
 │   ├── ui/           # UI modules (trait-based)
 │   │   ├── persons_tab.rs
 │   │   ├── families_tab.rs
+│   │   ├── events_tab.rs
 │   │   ├── settings_tab.rs
 │   │   └── canvas.rs
 │   └── core/         # Core domain logic
