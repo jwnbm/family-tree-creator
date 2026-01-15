@@ -81,6 +81,7 @@ pub struct EventEditorState {
     pub new_event_name: String,
     pub new_event_date: String,
     pub new_event_description: String,
+    pub new_event_color: [f32; 3],
     
     // イベントと人物の関係追加
     pub person_pick: Option<PersonId>,
@@ -93,6 +94,7 @@ impl EventEditorState {
         self.new_event_name.clear();
         self.new_event_date.clear();
         self.new_event_description.clear();
+        self.new_event_color = [1.0, 1.0, 0.8]; // デフォルトの淡い黄色
     }
 }
 

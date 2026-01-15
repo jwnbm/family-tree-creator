@@ -549,13 +549,14 @@ impl EventNodeRenderer for App {
 
         let event_ids: Vec<EventId> = self.tree.events.keys().copied().collect();
         for event_id in event_ids {
-            let (world_pos, name, date, description, is_sel, is_dragging) = {
+            let (world_pos, name, date, description, color, is_sel, is_dragging) = {
                 let event = self.tree.events.get(&event_id).unwrap();
                 (
                     egui::pos2(event.position.0, event.position.1),
                     event.name.clone(),
                     event.date.clone(),
                     event.description.clone(),
+                    event.color,
                     self.event_editor.selected == Some(event_id),
                     self.canvas.dragging_event == Some(event_id),
                 )
@@ -564,12 +565,23 @@ impl EventNodeRenderer for App {
             let screen_pos = to_screen(world_pos, self.canvas.zoom, self.canvas.pan, origin);
             let rect = egui::Rect::from_min_size(screen_pos, egui::vec2(node_w, node_h));
 
+            let (r, g, b) = color;
+            let base_color = egui::Color32::from_rgb(r, g, b);
+
             let fill = if is_dragging {
-                egui::Color32::from_rgb(255, 220, 140)
+                egui::Color32::from_rgb(
+                    (base_color.r() as f32 * 0.85) as u8,
+                    (base_color.g() as f32 * 0.85) as u8,
+                    (base_color.b() as f32 * 0.7) as u8,
+                )
             } else if is_sel {
-                egui::Color32::from_rgb(255, 250, 200)
+                egui::Color32::from_rgb(
+                    (base_color.r() as f32 * 1.0).min(255.0) as u8,
+                    (base_color.g() as f32 * 0.98).min(255.0) as u8,
+                    (base_color.b() as f32 * 0.78).min(255.0) as u8,
+                )
             } else {
-                egui::Color32::from_rgb(255, 255, 200)
+                base_color
             };
 
             painter.rect_filled(rect, NODE_CORNER_RADIUS, fill);
@@ -649,6 +661,8 @@ impl EventNodeRenderer for App {
                 self.event_editor.new_event_name = name;
                 self.event_editor.new_event_date = date.unwrap_or_default();
                 self.event_editor.new_event_description = description;
+                let (r, g, b) = color;
+                self.event_editor.new_event_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
                 self.ui.side_tab = SideTab::Events;
             }
         }
@@ -684,6 +698,12 @@ impl EventRelationRenderer for App {
 
         for relation in &self.tree.event_relations {
             if let (Some(event_rect), Some(person_rect)) = (event_rects.get(&relation.event), screen_rects.get(&relation.person)) {
+                // イベントの色を取得
+                let (r, g, b) = self.tree.events.get(&relation.event)
+                    .map(|e| e.color)
+                    .unwrap_or((255, 255, 200));
+                let event_color = egui::Color32::from_rgb(r, g, b);
+                
                 let event_center = event_rect.center();
                 let person_center = person_rect.center();
                 
@@ -719,8 +739,8 @@ impl EventRelationRenderer for App {
                 let end = person_center - dir * (t_person + 2.0); // 2ピクセルの余白を追加
 
                 let stroke = match relation.relation_type {
-                    EventRelationType::Line => egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::from_rgb(100, 100, 200)),
-                    EventRelationType::Arrow => egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::from_rgb(200, 100, 100)),
+                    EventRelationType::Line => egui::Stroke::new(EDGE_STROKE_WIDTH, event_color),
+                    EventRelationType::Arrow => egui::Stroke::new(EDGE_STROKE_WIDTH, event_color),
                 };
 
                 painter.line_segment([start, end], stroke);

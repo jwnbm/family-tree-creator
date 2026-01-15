@@ -36,6 +36,8 @@ impl EventsTabRenderer for App {
                     self.event_editor.new_event_name = event.name.clone();
                     self.event_editor.new_event_date = event.date.clone().unwrap_or_default();
                     self.event_editor.new_event_description = event.description.clone();
+                    let (r, g, b) = event.color;
+                    self.event_editor.new_event_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
                 }
             }
         }
@@ -54,15 +56,32 @@ impl EventsTabRenderer for App {
         ui.label(t("description"));
         ui.text_edit_multiline(&mut self.event_editor.new_event_description);
         
+        ui.label(t("color"));
+        ui.color_edit_button_rgb(&mut self.event_editor.new_event_color);
+        
         ui.horizontal(|ui| {
             // 追加または更新
             if self.event_editor.selected.is_none() {
                 if ui.button(t("add")).clicked() {
+                    // 現在表示されているキャンバスの左上を計算
+                    let visible_left_top = if self.canvas.canvas_rect != egui::Rect::NOTHING {
+                        let screen_pos = self.canvas.canvas_rect.left_top() + egui::vec2(50.0, 50.0);
+                        let world_pos = self.canvas.canvas_origin + (screen_pos - self.canvas.canvas_origin - self.canvas.pan) / self.canvas.zoom;
+                        (world_pos.x, world_pos.y)
+                    } else {
+                        (100.0, 100.0)
+                    };
+                    
                     let name = self.event_editor.new_event_name.clone();
                     let date = App::parse_optional_field(&self.event_editor.new_event_date);
                     let description = self.event_editor.new_event_description.clone();
+                    let color = (
+                        (self.event_editor.new_event_color[0] * 255.0) as u8,
+                        (self.event_editor.new_event_color[1] * 255.0) as u8,
+                        (self.event_editor.new_event_color[2] * 255.0) as u8,
+                    );
                     
-                    let event_id = self.tree.add_event(name, date, description, (100.0, 100.0));
+                    let event_id = self.tree.add_event(name, date, description, visible_left_top, color);
                     self.event_editor.selected = Some(event_id);
                     self.file.status = t("new_event_added");
                 }
@@ -73,6 +92,11 @@ impl EventsTabRenderer for App {
                             event.name = self.event_editor.new_event_name.clone();
                             event.date = App::parse_optional_field(&self.event_editor.new_event_date);
                             event.description = self.event_editor.new_event_description.clone();
+                            event.color = (
+                                (self.event_editor.new_event_color[0] * 255.0) as u8,
+                                (self.event_editor.new_event_color[1] * 255.0) as u8,
+                                (self.event_editor.new_event_color[2] * 255.0) as u8,
+                            );
                             self.file.status = t("event_updated");
                         }
                     }

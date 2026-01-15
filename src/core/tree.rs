@@ -56,6 +56,10 @@ pub struct Family {
     pub color: Option<(u8, u8, u8)>, // RGB色
 }
 
+fn default_event_color() -> (u8, u8, u8) {
+    (255, 255, 200) // デフォルトの淡い黄色
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub id: EventId,
@@ -63,7 +67,9 @@ pub struct Event {
     pub date: Option<String>, // "YYYY-MM-DD" など
     pub description: String,
     #[serde(default)]
-    pub position: (f32, f32), // 手動配置の座標（左上）
+    pub position: (f32, f32), // 手動配置の座標(左上)
+    #[serde(default = "default_event_color")]
+    pub color: (u8, u8, u8), // RGB色
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -243,7 +249,7 @@ impl FamilyTree {
 
     // ===== イベント操作メソッド =====
 
-    pub fn add_event(&mut self, name: String, date: Option<String>, description: String, position: (f32, f32)) -> EventId {
+    pub fn add_event(&mut self, name: String, date: Option<String>, description: String, position: (f32, f32), color: (u8, u8, u8)) -> EventId {
         let id = Uuid::new_v4();
         self.events.insert(
             id,
@@ -253,6 +259,7 @@ impl FamilyTree {
                 date,
                 description,
                 position,
+                color,
             },
         );
         id
@@ -609,7 +616,8 @@ mod tests {
             "Birth".to_string(),
             Some("2000-01-01".to_string()),
             "First child born".to_string(),
-            (100.0, 200.0)
+            (100.0, 200.0),
+            (255, 255, 200),
         );
 
         assert_eq!(tree.events.len(), 1);
@@ -627,7 +635,8 @@ mod tests {
             "Event".to_string(),
             None,
             "".to_string(),
-            (0.0, 0.0)
+            (0.0, 0.0),
+            (255, 255, 200),
         );
 
         assert_eq!(tree.events.len(), 1);
@@ -651,7 +660,8 @@ mod tests {
             "Event".to_string(),
             None,
             "".to_string(),
-            (100.0, 100.0)
+            (100.0, 100.0),
+            (255, 255, 200),
         );
 
         tree.add_event_relation(event, person, EventRelationType::Line, "memo".to_string());
@@ -668,7 +678,7 @@ mod tests {
     fn test_event_relation_duplicate_prevention() {
         let mut tree = FamilyTree::default();
         let person = tree.add_person("Person".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
-        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0), (255, 255, 200));
 
         tree.add_event_relation(event, person, EventRelationType::Line, "memo1".to_string());
         tree.add_event_relation(event, person, EventRelationType::Arrow, "memo2".to_string());
@@ -681,7 +691,7 @@ mod tests {
     fn test_remove_event_relation() {
         let mut tree = FamilyTree::default();
         let person = tree.add_person("Person".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
-        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0), (255, 255, 200));
 
         tree.add_event_relation(event, person, EventRelationType::Line, "".to_string());
         assert_eq!(tree.event_relations.len(), 1);
@@ -695,7 +705,7 @@ mod tests {
         let mut tree = FamilyTree::default();
         let person1 = tree.add_person("Person1".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
         let person2 = tree.add_person("Person2".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
-        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0), (255, 255, 200));
 
         tree.add_event_relation(event, person1, EventRelationType::Line, "".to_string());
         tree.add_event_relation(event, person2, EventRelationType::Arrow, "".to_string());
@@ -711,8 +721,8 @@ mod tests {
         let mut tree = FamilyTree::default();
         let person1 = tree.add_person("Person1".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
         let person2 = tree.add_person("Person2".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
-        let event1 = tree.add_event("Event1".to_string(), None, "".to_string(), (100.0, 100.0));
-        let event2 = tree.add_event("Event2".to_string(), None, "".to_string(), (200.0, 200.0));
+        let event1 = tree.add_event("Event1".to_string(), None, "".to_string(), (100.0, 100.0), (255, 255, 200));
+        let event2 = tree.add_event("Event2".to_string(), None, "".to_string(), (200.0, 200.0), (255, 255, 200));
 
         tree.add_event_relation(event1, person1, EventRelationType::Line, "".to_string());
         tree.add_event_relation(event1, person2, EventRelationType::Arrow, "".to_string());
@@ -729,7 +739,7 @@ mod tests {
     fn test_event_relation_types() {
         let mut tree = FamilyTree::default();
         let person = tree.add_person("Person".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
-        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0), (255, 255, 200));
 
         tree.add_event_relation(event, person, EventRelationType::Line, "line memo".to_string());
         let relation = &tree.event_relations[0];
