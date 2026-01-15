@@ -125,7 +125,7 @@ impl Texts {
             "new_event" => "New Event",
             "date" => "日付:",
             "description" => "説明:",
-            "event_relations" => "イベ9ントと人物の関係:",
+            "event_relations" => "イベントと人物の関係:",
             "add_person_to_event" => "イベントに人物を追加:",
             "relation_type" => "線の種類:",
             "line" => "直線",

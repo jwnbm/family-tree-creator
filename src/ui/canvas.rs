@@ -582,58 +582,9 @@ impl EventNodeRenderer for App {
                 base_color
             };
 
-            // イベントノードは角を丸くせず、破線の枠で描画して人物ノードと区別
+            // イベントノードは角を丸くせず、実線の枠で描画して人物ノードと区別
             painter.rect_filled(rect, 3.0, fill);
-            
-            // 破線の枠を描画
-            let stroke_color = egui::Color32::DARK_GRAY;
-            let stroke_width = 2.0;
-            let dash_length = 8.0;
-            let gap_length = 4.0;
-            
-            // 上辺
-            let mut x = rect.left();
-            while x < rect.right() {
-                let end_x = (x + dash_length).min(rect.right());
-                painter.line_segment(
-                    [egui::pos2(x, rect.top()), egui::pos2(end_x, rect.top())],
-                    egui::Stroke::new(stroke_width, stroke_color),
-                );
-                x = end_x + gap_length;
-            }
-            
-            // 下辺
-            let mut x = rect.left();
-            while x < rect.right() {
-                let end_x = (x + dash_length).min(rect.right());
-                painter.line_segment(
-                    [egui::pos2(x, rect.bottom()), egui::pos2(end_x, rect.bottom())],
-                    egui::Stroke::new(stroke_width, stroke_color),
-                );
-                x = end_x + gap_length;
-            }
-            
-            // 左辺
-            let mut y = rect.top();
-            while y < rect.bottom() {
-                let end_y = (y + dash_length).min(rect.bottom());
-                painter.line_segment(
-                    [egui::pos2(rect.left(), y), egui::pos2(rect.left(), end_y)],
-                    egui::Stroke::new(stroke_width, stroke_color),
-                );
-                y = end_y + gap_length;
-            }
-            
-            // 右辺
-            let mut y = rect.top();
-            while y < rect.bottom() {
-                let end_y = (y + dash_length).min(rect.bottom());
-                painter.line_segment(
-                    [egui::pos2(rect.right(), y), egui::pos2(rect.right(), end_y)],
-                    egui::Stroke::new(stroke_width, stroke_color),
-                );
-                y = end_y + gap_length;
-            }
+            painter.rect_stroke(rect, 3.0, egui::Stroke::new(2.0, egui::Color32::DARK_GRAY), egui::epaint::StrokeKind::Outside);
 
             let text = if name.is_empty() {
                 Texts::get("new_event", lang)
