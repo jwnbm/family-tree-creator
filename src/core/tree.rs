@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub type PersonId = Uuid;
+pub type EventId = Uuid;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Gender {
@@ -55,6 +56,37 @@ pub struct Family {
     pub color: Option<(u8, u8, u8)>, // RGB色
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Event {
+    pub id: EventId,
+    pub name: String,
+    pub date: Option<String>, // "YYYY-MM-DD" など
+    pub description: String,
+    #[serde(default)]
+    pub position: (f32, f32), // 手動配置の座標（左上）
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum EventRelationType {
+    Line,   // 直線
+    Arrow,  // 矢印
+}
+
+impl Default for EventRelationType {
+    fn default() -> Self {
+        EventRelationType::Line
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventRelation {
+    pub event: EventId,
+    pub person: PersonId,
+    #[serde(default)]
+    pub relation_type: EventRelationType,
+    pub memo: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FamilyTree {
     pub persons: HashMap<PersonId, Person>,
@@ -63,6 +95,10 @@ pub struct FamilyTree {
     pub spouses: Vec<Spouse>,
     #[serde(default)]
     pub families: Vec<Family>,
+    #[serde(default)]
+    pub events: HashMap<EventId, Event>,
+    #[serde(default)]
+    pub event_relations: Vec<EventRelation>,
 }
 
 impl FamilyTree {
@@ -203,6 +239,52 @@ impl FamilyTree {
                 family.members.push(person_id);
             }
         }
+    }
+
+    // ===== イベント操作メソッド =====
+
+    pub fn add_event(&mut self, name: String, date: Option<String>, description: String, position: (f32, f32)) -> EventId {
+        let id = Uuid::new_v4();
+        self.events.insert(
+            id,
+            Event {
+                id,
+                name,
+                date,
+                description,
+                position,
+            },
+        );
+        id
+    }
+
+    pub fn remove_event(&mut self, id: EventId) {
+        self.events.remove(&id);
+        self.event_relations.retain(|r| r.event != id);
+    }
+
+    pub fn add_event_relation(&mut self, event: EventId, person: PersonId, relation_type: EventRelationType, memo: String) {
+        // 重複防止
+        if self.event_relations.iter().any(|r| r.event == event && r.person == person) {
+            return;
+        }
+        self.event_relations.push(EventRelation {
+            event,
+            person,
+            relation_type,
+            memo,
+        });
+    }
+
+    pub fn remove_event_relation(&mut self, event: EventId, person: PersonId) {
+        self.event_relations.retain(|r| !(r.event == event && r.person == person));
+    }
+
+    pub fn event_relations_of(&self, event: EventId) -> Vec<&EventRelation> {
+        self.event_relations
+            .iter()
+            .filter(|r| r.event == event)
+            .collect()
     }
 
     pub fn remove_member_from_family(&mut self, family_id: Uuid, person_id: PersonId) {

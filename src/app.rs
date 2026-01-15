@@ -4,8 +4,8 @@ use eframe::egui;
 use crate::core::tree::{FamilyTree, PersonId};
 use crate::core::i18n::Texts;
 use crate::ui::{
-    FileMenuRenderer, HelpMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, SettingsTabRenderer, CanvasRenderer,
-    PersonEditorState, RelationEditorState, FamilyEditorState, 
+    FileMenuRenderer, HelpMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, EventsTabRenderer, SettingsTabRenderer, CanvasRenderer,
+    PersonEditorState, RelationEditorState, FamilyEditorState, EventEditorState,
     CanvasState, FileState, UiState, SideTab
 };
 
@@ -21,6 +21,7 @@ pub struct App {
     pub person_editor: PersonEditorState,
     pub relation_editor: RelationEditorState,
     pub family_editor: FamilyEditorState,
+    pub event_editor: EventEditorState,
     pub canvas: CanvasState,
     pub file: FileState,
     pub ui: UiState,
@@ -33,6 +34,7 @@ impl Default for App {
             person_editor: PersonEditorState::default(),
             relation_editor: RelationEditorState::new(),
             family_editor: FamilyEditorState::new(),
+            event_editor: EventEditorState::default(),
             canvas: CanvasState::default(),
             file: FileState::new(),
             ui: UiState::default(),
@@ -107,6 +109,7 @@ impl eframe::App for App {
                 ui.horizontal(|ui| {
                     ui.selectable_value(&mut self.ui.side_tab, SideTab::Persons, t("persons"));
                     ui.selectable_value(&mut self.ui.side_tab, SideTab::Families, t("families"));
+                    ui.selectable_value(&mut self.ui.side_tab, SideTab::Events, t("events"));
                     ui.selectable_value(&mut self.ui.side_tab, SideTab::Settings, t("settings"));
                 });
                 ui.separator();
@@ -114,6 +117,7 @@ impl eframe::App for App {
                 match self.ui.side_tab {
                     SideTab::Persons => self.render_persons_tab(ui, t),
                     SideTab::Families => self.render_families_tab(ui, t),
+                    SideTab::Events => self.render_events_tab(ui, t),
                     SideTab::Settings => self.render_settings_tab(ui, t),
                 }
             });

@@ -1,6 +1,6 @@
 use crate::app::{App, NODE_CORNER_RADIUS, SPOUSE_LINE_OFFSET, EDGE_STROKE_WIDTH};
 use super::SideTab;
-use crate::core::tree::{PersonId, Gender};
+use crate::core::tree::{PersonId, Gender, EventId};
 use crate::core::layout::LayoutEngine;
 use crate::core::i18n::Texts;
 use std::collections::HashMap;
@@ -42,6 +42,8 @@ pub trait PanZoomHandler {
         pointer_pos: Option<egui::Pos2>,
         node_hovered: bool,
         any_node_dragged: bool,
+        event_hovered: bool,
+        any_event_dragged: bool,
     );
 }
 
@@ -62,6 +64,29 @@ pub trait FamilyBoxRenderer {
         ui: &mut egui::Ui,
         painter: &egui::Painter,
         screen_rects: &HashMap<PersonId, egui::Rect>,
+    );
+}
+
+/// イベントノード描画トレイト
+pub trait EventNodeRenderer {
+    fn render_event_nodes(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+        pointer_pos: Option<egui::Pos2>,
+        origin: egui::Pos2,
+    ) -> (bool, bool); // (event_hovered, any_event_dragged)
+}
+
+/// イベント関係線描画トレイト
+pub trait EventRelationRenderer {
+    fn render_event_relations(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+        event_rects: &HashMap<EventId, egui::Rect>,
     );
 }
 
@@ -206,8 +231,14 @@ impl PanZoomHandler for App {
         pointer_pos: Option<egui::Pos2>,
         node_hovered: bool,
         any_node_dragged: bool,
+        event_hovered: bool,
+        any_event_dragged: bool,
     ) {
-        if !node_hovered && !any_node_dragged && self.canvas.dragging_node.is_none() {
+        let any_hovered = node_hovered || event_hovered;
+        let any_dragged = any_node_dragged || any_event_dragged;
+        let any_dragging = self.canvas.dragging_node.is_some() || self.canvas.dragging_event.is_some();
+        
+        if !any_hovered && !any_dragged && !any_dragging {
             if let Some(pos) = pointer_pos {
                 let primary_down = ui.input(|i| i.pointer.primary_down());
                 let primary_pressed = ui.input(|i| i.pointer.primary_pressed());
@@ -229,7 +260,7 @@ impl PanZoomHandler for App {
                     self.canvas.last_pointer_pos = None;
                 }
             }
-        } else if !any_node_dragged {
+        } else if !any_dragged {
             self.canvas.dragging_pan = false;
             self.canvas.last_pointer_pos = None;
         }
@@ -499,6 +530,217 @@ impl FamilyBoxRenderer for App {
     }
 }
 
+impl EventNodeRenderer for App {
+    fn render_event_nodes(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        _screen_rects: &HashMap<PersonId, egui::Rect>,
+        pointer_pos: Option<egui::Pos2>,
+        origin: egui::Pos2,
+    ) -> (bool, bool) {
+        let mut event_hovered = false;
+        let mut any_event_dragged = false;
+        let to_screen = |p: egui::Pos2, zoom: f32, pan: egui::Vec2, origin: egui::Pos2| -> egui::Pos2 {
+            let v = (p - origin) * zoom;
+            origin + v + pan
+        };
+
+        let origin = self.canvas.canvas_origin;
+        let node_w = 140.0 * self.canvas.zoom;
+        let node_h = 50.0 * self.canvas.zoom;
+
+        let event_ids: Vec<EventId> = self.tree.events.keys().copied().collect();
+        for event_id in event_ids {
+            let (world_pos, name, date, description, is_sel, is_dragging) = {
+                let event = self.tree.events.get(&event_id).unwrap();
+                (
+                    egui::pos2(event.position.0, event.position.1),
+                    event.name.clone(),
+                    event.date.clone(),
+                    event.description.clone(),
+                    self.event_editor.selected == Some(event_id),
+                    self.canvas.dragging_event == Some(event_id),
+                )
+            };
+            
+            let screen_pos = to_screen(world_pos, self.canvas.zoom, self.canvas.pan, origin);
+            let rect = egui::Rect::from_min_size(screen_pos, egui::vec2(node_w, node_h));
+
+            let fill = if is_dragging {
+                egui::Color32::from_rgb(255, 220, 140)
+            } else if is_sel {
+                egui::Color32::from_rgb(255, 250, 200)
+            } else {
+                egui::Color32::from_rgb(255, 255, 200)
+            };
+
+            painter.rect_filled(rect, NODE_CORNER_RADIUS, fill);
+            painter.rect_stroke(rect, NODE_CORNER_RADIUS, egui::Stroke::new(1.5, egui::Color32::DARK_GRAY), egui::epaint::StrokeKind::Outside);
+
+            let text = if name.is_empty() {
+                let lang = self.ui.language;
+                Texts::get("new_event", lang)
+            } else {
+                name.clone()
+            };
+
+            painter.text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                text,
+                egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
+                egui::Color32::BLACK,
+            );
+
+            // ツールチップ
+            let event_node_id = ui.id().with(("event", event_id));
+            let event_response = ui.interact(rect, event_node_id, egui::Sense::hover());
+            if event_response.hovered() {
+                let mut tooltip_text = format!("{}\n", name);
+                if let Some(d) = &date {
+                    tooltip_text.push_str(&format!("{}: {}\n", Texts::get("date", self.ui.language), d));
+                }
+                if !description.is_empty() {
+                    tooltip_text.push_str(&format!("{}: {}", Texts::get("description", self.ui.language), description));
+                }
+                event_response.on_hover_text(tooltip_text);
+            }
+
+            // インタラクション処理
+            let event_interact_id = ui.id().with(("event_interact", event_id));
+            let interact_response = ui.interact(rect, event_interact_id, egui::Sense::click_and_drag());
+
+            if interact_response.hovered() {
+                event_hovered = true;
+            }
+
+            if interact_response.drag_started() {
+                self.canvas.dragging_event = Some(event_id);
+                self.canvas.event_drag_start = pointer_pos;
+            }
+
+            if interact_response.dragged() && self.canvas.dragging_event == Some(event_id) {
+                any_event_dragged = true;
+                if let (Some(pos), Some(start)) = (pointer_pos, self.canvas.event_drag_start) {
+                    let delta = (pos - start) / self.canvas.zoom;
+                    
+                    if let Some(event) = self.tree.events.get_mut(&event_id) {
+                        let current_pos = event.position;
+                        event.position.0 = current_pos.0 + delta.x;
+                        event.position.1 = current_pos.1 + delta.y;
+                    }
+                    self.canvas.event_drag_start = pointer_pos;
+                }
+            }
+
+            if interact_response.drag_stopped() && self.canvas.dragging_event == Some(event_id) {
+                if self.canvas.show_grid {
+                    if let Some(event) = self.tree.events.get_mut(&event_id) {
+                        let (x, y) = event.position;
+                        let relative_pos = egui::pos2(x - origin.x, y - origin.y);
+                        let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.canvas.grid_size);
+                        event.position = (origin.x + snapped_rel.x, origin.y + snapped_rel.y);
+                    }
+                }
+                self.canvas.dragging_event = None;
+                self.canvas.event_drag_start = None;
+            }
+
+            if interact_response.clicked() {
+                self.event_editor.selected = Some(event_id);
+                self.event_editor.new_event_name = name;
+                self.event_editor.new_event_date = date.unwrap_or_default();
+                self.event_editor.new_event_description = description;
+                self.ui.side_tab = SideTab::Events;
+            }
+        }
+        
+        (event_hovered, any_event_dragged)
+    }
+}
+
+impl EventRelationRenderer for App {
+    fn render_event_relations(
+        &mut self,
+        ui: &mut egui::Ui,
+        painter: &egui::Painter,
+        screen_rects: &HashMap<PersonId, egui::Rect>,
+        event_rects: &HashMap<EventId, egui::Rect>,
+    ) {
+        use crate::core::tree::EventRelationType;
+
+        for relation in &self.tree.event_relations {
+            if let (Some(event_rect), Some(person_rect)) = (event_rects.get(&relation.event), screen_rects.get(&relation.person)) {
+                let event_center = event_rect.center();
+                let person_center = person_rect.center();
+                
+                // ノードの端から線を引くための計算（矩形との交点を求める）
+                let dir = (person_center - event_center).normalized();
+                
+                // イベントノードの境界との交点を計算
+                let t_x_event = if dir.x.abs() > 0.001 {
+                    (event_rect.width() / 2.0) / dir.x.abs()
+                } else {
+                    f32::INFINITY
+                };
+                let t_y_event = if dir.y.abs() > 0.001 {
+                    (event_rect.height() / 2.0) / dir.y.abs()
+                } else {
+                    f32::INFINITY
+                };
+                let t_event = t_x_event.min(t_y_event);
+                let start = event_center + dir * (t_event + 2.0); // 2ピクセルの余白を追加
+                
+                // 人物ノードの境界との交点を計算
+                let t_x_person = if dir.x.abs() > 0.001 {
+                    (person_rect.width() / 2.0) / dir.x.abs()
+                } else {
+                    f32::INFINITY
+                };
+                let t_y_person = if dir.y.abs() > 0.001 {
+                    (person_rect.height() / 2.0) / dir.y.abs()
+                } else {
+                    f32::INFINITY
+                };
+                let t_person = t_x_person.min(t_y_person);
+                let end = person_center - dir * (t_person + 2.0); // 2ピクセルの余白を追加
+
+                let stroke = match relation.relation_type {
+                    EventRelationType::Line => egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::from_rgb(100, 100, 200)),
+                    EventRelationType::Arrow => egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::from_rgb(200, 100, 100)),
+                };
+
+                painter.line_segment([start, end], stroke);
+
+                // 矢印の場合は矢印を描画
+                if relation.relation_type == EventRelationType::Arrow {
+                    let dir = (end - start).normalized();
+                    let arrow_size = 8.0 * self.canvas.zoom;
+                    let arrow_angle = std::f32::consts::PI / 6.0;
+
+                    let left = end - dir.rot90() * arrow_size * arrow_angle.sin() - dir * arrow_size * arrow_angle.cos();
+                    let right = end + dir.rot90() * arrow_size * arrow_angle.sin() - dir * arrow_size * arrow_angle.cos();
+
+                    painter.line_segment([end, left], stroke);
+                    painter.line_segment([end, right], stroke);
+                }
+
+                // メモのツールチップ
+                if !relation.memo.is_empty() {
+                    let mid_point = (start + end.to_vec2()) / 2.0;
+                    let line_rect = egui::Rect::from_center_size(mid_point, egui::vec2(20.0, 20.0));
+                    let line_id = ui.id().with(("event_relation", relation.event, relation.person));
+                    let line_response = ui.interact(line_rect, line_id, egui::Sense::hover());
+                    if line_response.hovered() {
+                        line_response.on_hover_text(&relation.memo);
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl CanvasRenderer for App {
     fn render_canvas(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -549,8 +791,11 @@ impl CanvasRenderer for App {
             // ノードのインタラクション処理
             let (node_hovered, any_node_dragged) = self.handle_node_interactions(ui, &nodes, &screen_rects, pointer_pos, origin);
             
+            // イベントノード描画（ホバー/ドラッグ状態を先に取得）
+            let (event_hovered, any_event_dragged) = self.render_event_nodes(ui, &painter, &screen_rects, pointer_pos, origin);
+            
             // パン・ズーム処理
-            self.handle_pan_zoom(ui, rect, pointer_pos, node_hovered, any_node_dragged);
+            self.handle_pan_zoom(ui, rect, pointer_pos, node_hovered, any_node_dragged, event_hovered, any_event_dragged);
 
             // エッジ（関係線）描画
             self.render_canvas_edges(ui, &painter, &screen_rects);
@@ -560,6 +805,24 @@ impl CanvasRenderer for App {
 
             // ノード描画
             self.render_canvas_nodes(ui, &painter, &nodes, &screen_rects);
+
+            // イベント関係線の描画用にイベント矩形を計算
+            let to_screen = |p: egui::Pos2, zoom: f32, pan: egui::Vec2, origin: egui::Pos2| -> egui::Pos2 {
+                let v = (p - origin) * zoom;
+                origin + v + pan
+            };
+            
+            let mut event_rects: HashMap<EventId, egui::Rect> = HashMap::new();
+            for (event_id, event) in &self.tree.events {
+                let world_pos = egui::pos2(event.position.0, event.position.1);
+                let screen_pos = to_screen(world_pos, self.canvas.zoom, self.canvas.pan, origin);
+                let node_w = 140.0 * self.canvas.zoom;
+                let node_h = 50.0 * self.canvas.zoom;
+                event_rects.insert(*event_id, egui::Rect::from_min_size(screen_pos, egui::vec2(node_w, node_h)));
+            }
+
+            // イベント関係線描画
+            self.render_event_relations(ui, &painter, &screen_rects, &event_rects);
 
             // ズーム表示
             painter.text(

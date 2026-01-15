@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::core::tree::{Gender, PersonId};
+use crate::core::tree::{Gender, PersonId, EventId, EventRelationType};
 use crate::core::i18n::Language;
 use uuid::Uuid;
 
@@ -74,6 +74,28 @@ impl FamilyEditorState {
     }
 }
 
+/// イベント管理の状態
+#[derive(Default)]
+pub struct EventEditorState {
+    pub selected: Option<EventId>,
+    pub new_event_name: String,
+    pub new_event_date: String,
+    pub new_event_description: String,
+    
+    // イベントと人物の関係追加
+    pub person_pick: Option<PersonId>,
+    pub relation_type: EventRelationType,
+    pub relation_memo: String,
+}
+
+impl EventEditorState {
+    pub fn clear(&mut self) {
+        self.new_event_name.clear();
+        self.new_event_date.clear();
+        self.new_event_description.clear();
+    }
+}
+
 /// キャンバスの表示・操作状態
 pub struct CanvasState {
     // 表示
@@ -85,6 +107,10 @@ pub struct CanvasState {
     // ノードドラッグ
     pub dragging_node: Option<PersonId>,
     pub node_drag_start: Option<egui::Pos2>,
+    
+    // イベントノードドラッグ
+    pub dragging_event: Option<EventId>,
+    pub event_drag_start: Option<egui::Pos2>,
     
     // グリッド
     pub show_grid: bool,
@@ -104,6 +130,8 @@ impl Default for CanvasState {
             last_pointer_pos: None,
             dragging_node: None,
             node_drag_start: None,
+            dragging_event: None,
+            event_drag_start: None,
             show_grid: true,
             grid_size: 50.0,
             canvas_rect: egui::Rect::NOTHING,
@@ -133,6 +161,7 @@ impl FileState {
 pub enum SideTab {
     Persons,
     Families,
+    Events,
     Settings,
 }
 

@@ -32,7 +32,7 @@ impl HelpMenuRenderer for App {
                         ui.heading(t("app_name"));
                         ui.label(format!("{}: {}", t("version"), env!("CARGO_PKG_VERSION")));
                         ui.add_space(10.0);
-                        ui.label(t("description"));
+                        ui.label(t("app_description"));
                         ui.add_space(10.0);
                         if ui.button(t("close")).clicked() {
                             self.ui.show_about_dialog = false;
