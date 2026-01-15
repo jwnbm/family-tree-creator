@@ -75,7 +75,6 @@ pub trait EventNodeRenderer {
         painter: &egui::Painter,
         screen_rects: &HashMap<PersonId, egui::Rect>,
         pointer_pos: Option<egui::Pos2>,
-        origin: egui::Pos2,
     ) -> (bool, bool); // (event_hovered, any_event_dragged)
 }
 
@@ -86,7 +85,6 @@ pub trait EventRelationRenderer {
         ui: &mut egui::Ui,
         painter: &egui::Painter,
         screen_rects: &HashMap<PersonId, egui::Rect>,
-        event_rects: &HashMap<EventId, egui::Rect>,
     );
 }
 
@@ -537,7 +535,6 @@ impl EventNodeRenderer for App {
         painter: &egui::Painter,
         _screen_rects: &HashMap<PersonId, egui::Rect>,
         pointer_pos: Option<egui::Pos2>,
-        origin: egui::Pos2,
     ) -> (bool, bool) {
         let mut event_hovered = false;
         let mut any_event_dragged = false;
@@ -666,9 +663,24 @@ impl EventRelationRenderer for App {
         ui: &mut egui::Ui,
         painter: &egui::Painter,
         screen_rects: &HashMap<PersonId, egui::Rect>,
-        event_rects: &HashMap<EventId, egui::Rect>,
     ) {
         use crate::core::tree::EventRelationType;
+
+        // イベント矩形を計算
+        let to_screen = |p: egui::Pos2, zoom: f32, pan: egui::Vec2, origin: egui::Pos2| -> egui::Pos2 {
+            let v = (p - origin) * zoom;
+            origin + v + pan
+        };
+        
+        let origin = self.canvas.canvas_origin;
+        let mut event_rects: HashMap<EventId, egui::Rect> = HashMap::new();
+        for (event_id, event) in &self.tree.events {
+            let world_pos = egui::pos2(event.position.0, event.position.1);
+            let screen_pos = to_screen(world_pos, self.canvas.zoom, self.canvas.pan, origin);
+            let node_w = 140.0 * self.canvas.zoom;
+            let node_h = 50.0 * self.canvas.zoom;
+            event_rects.insert(*event_id, egui::Rect::from_min_size(screen_pos, egui::vec2(node_w, node_h)));
+        }
 
         for relation in &self.tree.event_relations {
             if let (Some(event_rect), Some(person_rect)) = (event_rects.get(&relation.event), screen_rects.get(&relation.person)) {
@@ -792,7 +804,7 @@ impl CanvasRenderer for App {
             let (node_hovered, any_node_dragged) = self.handle_node_interactions(ui, &nodes, &screen_rects, pointer_pos, origin);
             
             // イベントノード描画（ホバー/ドラッグ状態を先に取得）
-            let (event_hovered, any_event_dragged) = self.render_event_nodes(ui, &painter, &screen_rects, pointer_pos, origin);
+            let (event_hovered, any_event_dragged) = self.render_event_nodes(ui, &painter, &screen_rects, pointer_pos);
             
             // パン・ズーム処理
             self.handle_pan_zoom(ui, rect, pointer_pos, node_hovered, any_node_dragged, event_hovered, any_event_dragged);
@@ -806,23 +818,8 @@ impl CanvasRenderer for App {
             // ノード描画
             self.render_canvas_nodes(ui, &painter, &nodes, &screen_rects);
 
-            // イベント関係線の描画用にイベント矩形を計算
-            let to_screen = |p: egui::Pos2, zoom: f32, pan: egui::Vec2, origin: egui::Pos2| -> egui::Pos2 {
-                let v = (p - origin) * zoom;
-                origin + v + pan
-            };
-            
-            let mut event_rects: HashMap<EventId, egui::Rect> = HashMap::new();
-            for (event_id, event) in &self.tree.events {
-                let world_pos = egui::pos2(event.position.0, event.position.1);
-                let screen_pos = to_screen(world_pos, self.canvas.zoom, self.canvas.pan, origin);
-                let node_w = 140.0 * self.canvas.zoom;
-                let node_h = 50.0 * self.canvas.zoom;
-                event_rects.insert(*event_id, egui::Rect::from_min_size(screen_pos, egui::vec2(node_w, node_h)));
-            }
-
             // イベント関係線描画
-            self.render_event_relations(ui, &painter, &screen_rects, &event_rects);
+            self.render_event_relations(ui, &painter, &screen_rects);
 
             // ズーム表示
             painter.text(

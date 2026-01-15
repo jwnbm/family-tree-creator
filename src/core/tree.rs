@@ -601,4 +601,143 @@ mod tests {
         let p = tree.persons.get(&person).unwrap();
         assert_eq!(p.position, (999.0, 111.0));
     }
+
+    #[test]
+    fn test_add_event() {
+        let mut tree = FamilyTree::default();
+        let event_id = tree.add_event(
+            "Birth".to_string(),
+            Some("2000-01-01".to_string()),
+            "First child born".to_string(),
+            (100.0, 200.0)
+        );
+
+        assert_eq!(tree.events.len(), 1);
+        let event = tree.events.get(&event_id).unwrap();
+        assert_eq!(event.name, "Birth");
+        assert_eq!(event.date, Some("2000-01-01".to_string()));
+        assert_eq!(event.description, "First child born");
+        assert_eq!(event.position, (100.0, 200.0));
+    }
+
+    #[test]
+    fn test_remove_event() {
+        let mut tree = FamilyTree::default();
+        let event_id = tree.add_event(
+            "Event".to_string(),
+            None,
+            "".to_string(),
+            (0.0, 0.0)
+        );
+
+        assert_eq!(tree.events.len(), 1);
+        tree.remove_event(event_id);
+        assert_eq!(tree.events.len(), 0);
+    }
+
+    #[test]
+    fn test_add_event_relation() {
+        let mut tree = FamilyTree::default();
+        let person = tree.add_person(
+            "Person".to_string(),
+            Gender::Unknown,
+            None,
+            "".to_string(),
+            false,
+            None,
+            (0.0, 0.0)
+        );
+        let event = tree.add_event(
+            "Event".to_string(),
+            None,
+            "".to_string(),
+            (100.0, 100.0)
+        );
+
+        tree.add_event_relation(event, person, EventRelationType::Line, "memo".to_string());
+        assert_eq!(tree.event_relations.len(), 1);
+
+        let relation = &tree.event_relations[0];
+        assert_eq!(relation.event, event);
+        assert_eq!(relation.person, person);
+        assert_eq!(relation.relation_type, EventRelationType::Line);
+        assert_eq!(relation.memo, "memo");
+    }
+
+    #[test]
+    fn test_event_relation_duplicate_prevention() {
+        let mut tree = FamilyTree::default();
+        let person = tree.add_person("Person".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+
+        tree.add_event_relation(event, person, EventRelationType::Line, "memo1".to_string());
+        tree.add_event_relation(event, person, EventRelationType::Arrow, "memo2".to_string());
+
+        // 同じイベントと人物のペアは追加されない
+        assert_eq!(tree.event_relations.len(), 1);
+    }
+
+    #[test]
+    fn test_remove_event_relation() {
+        let mut tree = FamilyTree::default();
+        let person = tree.add_person("Person".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+
+        tree.add_event_relation(event, person, EventRelationType::Line, "".to_string());
+        assert_eq!(tree.event_relations.len(), 1);
+
+        tree.remove_event_relation(event, person);
+        assert_eq!(tree.event_relations.len(), 0);
+    }
+
+    #[test]
+    fn test_remove_event_removes_relations() {
+        let mut tree = FamilyTree::default();
+        let person1 = tree.add_person("Person1".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
+        let person2 = tree.add_person("Person2".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+
+        tree.add_event_relation(event, person1, EventRelationType::Line, "".to_string());
+        tree.add_event_relation(event, person2, EventRelationType::Arrow, "".to_string());
+        assert_eq!(tree.event_relations.len(), 2);
+
+        // イベントを削除すると関連する関係も削除される
+        tree.remove_event(event);
+        assert_eq!(tree.event_relations.len(), 0);
+    }
+
+    #[test]
+    fn test_event_relations_of() {
+        let mut tree = FamilyTree::default();
+        let person1 = tree.add_person("Person1".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
+        let person2 = tree.add_person("Person2".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
+        let event1 = tree.add_event("Event1".to_string(), None, "".to_string(), (100.0, 100.0));
+        let event2 = tree.add_event("Event2".to_string(), None, "".to_string(), (200.0, 200.0));
+
+        tree.add_event_relation(event1, person1, EventRelationType::Line, "".to_string());
+        tree.add_event_relation(event1, person2, EventRelationType::Arrow, "".to_string());
+        tree.add_event_relation(event2, person1, EventRelationType::Line, "".to_string());
+
+        let relations = tree.event_relations_of(event1);
+        assert_eq!(relations.len(), 2);
+        
+        let relations = tree.event_relations_of(event2);
+        assert_eq!(relations.len(), 1);
+    }
+
+    #[test]
+    fn test_event_relation_types() {
+        let mut tree = FamilyTree::default();
+        let person = tree.add_person("Person".to_string(), Gender::Unknown, None, "".to_string(), false, None, (0.0, 0.0));
+        let event = tree.add_event("Event".to_string(), None, "".to_string(), (100.0, 100.0));
+
+        tree.add_event_relation(event, person, EventRelationType::Line, "line memo".to_string());
+        let relation = &tree.event_relations[0];
+        assert_eq!(relation.relation_type, EventRelationType::Line);
+
+        tree.remove_event_relation(event, person);
+        tree.add_event_relation(event, person, EventRelationType::Arrow, "arrow memo".to_string());
+        let relation = &tree.event_relations[0];
+        assert_eq!(relation.relation_type, EventRelationType::Arrow);
+    }
 }
