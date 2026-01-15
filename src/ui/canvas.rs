@@ -538,32 +538,30 @@ impl EventNodeRenderer for App {
     ) -> (bool, bool) {
         let mut event_hovered = false;
         let mut any_event_dragged = false;
-        let to_screen = |p: egui::Pos2, zoom: f32, pan: egui::Vec2, origin: egui::Pos2| -> egui::Pos2 {
-            let v = (p - origin) * zoom;
-            origin + v + pan
-        };
 
         let origin = self.canvas.canvas_origin;
-        let node_w = 140.0 * self.canvas.zoom;
-        let node_h = 50.0 * self.canvas.zoom;
+        let zoom = self.canvas.zoom;
+        let lang = self.ui.language;
 
         let event_ids: Vec<EventId> = self.tree.events.keys().copied().collect();
         for event_id in event_ids {
-            let (world_pos, name, date, description, color, is_sel, is_dragging) = {
-                let event = self.tree.events.get(&event_id).unwrap();
-                (
-                    egui::pos2(event.position.0, event.position.1),
-                    event.name.clone(),
-                    event.date.clone(),
-                    event.description.clone(),
-                    event.color,
-                    self.event_editor.selected == Some(event_id),
-                    self.canvas.dragging_event == Some(event_id),
-                )
-            };
+            let event = self.tree.events.get(&event_id).unwrap();
+            let (name, date, description, color, is_sel, is_dragging) = (
+                event.name.clone(),
+                event.date.clone(),
+                event.description.clone(),
+                event.color,
+                self.event_editor.selected == Some(event_id),
+                self.canvas.dragging_event == Some(event_id),
+            );
             
-            let screen_pos = to_screen(world_pos, self.canvas.zoom, self.canvas.pan, origin);
-            let rect = egui::Rect::from_min_size(screen_pos, egui::vec2(node_w, node_h));
+            let rect = LayoutEngine::calculate_event_screen_rect(
+                event,
+                origin,
+                zoom,
+                self.canvas.pan,
+                lang,
+            );
 
             let (r, g, b) = color;
             let base_color = egui::Color32::from_rgb(r, g, b);
@@ -584,21 +582,70 @@ impl EventNodeRenderer for App {
                 base_color
             };
 
-            painter.rect_filled(rect, NODE_CORNER_RADIUS, fill);
-            painter.rect_stroke(rect, NODE_CORNER_RADIUS, egui::Stroke::new(1.5, egui::Color32::DARK_GRAY), egui::epaint::StrokeKind::Outside);
+            // イベントノードは角を丸くせず、破線の枠で描画して人物ノードと区別
+            painter.rect_filled(rect, 3.0, fill);
+            
+            // 破線の枠を描画
+            let stroke_color = egui::Color32::DARK_GRAY;
+            let stroke_width = 2.0;
+            let dash_length = 8.0;
+            let gap_length = 4.0;
+            
+            // 上辺
+            let mut x = rect.left();
+            while x < rect.right() {
+                let end_x = (x + dash_length).min(rect.right());
+                painter.line_segment(
+                    [egui::pos2(x, rect.top()), egui::pos2(end_x, rect.top())],
+                    egui::Stroke::new(stroke_width, stroke_color),
+                );
+                x = end_x + gap_length;
+            }
+            
+            // 下辺
+            let mut x = rect.left();
+            while x < rect.right() {
+                let end_x = (x + dash_length).min(rect.right());
+                painter.line_segment(
+                    [egui::pos2(x, rect.bottom()), egui::pos2(end_x, rect.bottom())],
+                    egui::Stroke::new(stroke_width, stroke_color),
+                );
+                x = end_x + gap_length;
+            }
+            
+            // 左辺
+            let mut y = rect.top();
+            while y < rect.bottom() {
+                let end_y = (y + dash_length).min(rect.bottom());
+                painter.line_segment(
+                    [egui::pos2(rect.left(), y), egui::pos2(rect.left(), end_y)],
+                    egui::Stroke::new(stroke_width, stroke_color),
+                );
+                y = end_y + gap_length;
+            }
+            
+            // 右辺
+            let mut y = rect.top();
+            while y < rect.bottom() {
+                let end_y = (y + dash_length).min(rect.bottom());
+                painter.line_segment(
+                    [egui::pos2(rect.right(), y), egui::pos2(rect.right(), end_y)],
+                    egui::Stroke::new(stroke_width, stroke_color),
+                );
+                y = end_y + gap_length;
+            }
 
             let text = if name.is_empty() {
-                let lang = self.ui.language;
                 Texts::get("new_event", lang)
             } else {
                 name.clone()
             };
-
+            
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 text,
-                egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
+                egui::FontId::proportional(13.0 * zoom.clamp(0.7, 1.2)),
                 egui::Color32::BLACK,
             );
 
@@ -681,20 +728,17 @@ impl EventRelationRenderer for App {
         use crate::core::tree::EventRelationType;
 
         // イベント矩形を計算
-        let to_screen = |p: egui::Pos2, zoom: f32, pan: egui::Vec2, origin: egui::Pos2| -> egui::Pos2 {
-            let v = (p - origin) * zoom;
-            origin + v + pan
-        };
-        
         let origin = self.canvas.canvas_origin;
-        let mut event_rects: HashMap<EventId, egui::Rect> = HashMap::new();
-        for (event_id, event) in &self.tree.events {
-            let world_pos = egui::pos2(event.position.0, event.position.1);
-            let screen_pos = to_screen(world_pos, self.canvas.zoom, self.canvas.pan, origin);
-            let node_w = 140.0 * self.canvas.zoom;
-            let node_h = 50.0 * self.canvas.zoom;
-            event_rects.insert(*event_id, egui::Rect::from_min_size(screen_pos, egui::vec2(node_w, node_h)));
-        }
+        let zoom = self.canvas.zoom;
+        let lang = self.ui.language;
+        
+        let event_rects = LayoutEngine::calculate_event_screen_rects(
+            &self.tree.events,
+            origin,
+            zoom,
+            self.canvas.pan,
+            lang,
+        );
 
         for relation in &self.tree.event_relations {
             if let (Some(event_rect), Some(person_rect)) = (event_rects.get(&relation.event), screen_rects.get(&relation.person)) {

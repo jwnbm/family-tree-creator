@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use eframe::egui;
-use crate::core::tree::{FamilyTree, PersonId};
+use crate::core::tree::{FamilyTree, PersonId, EventId, Event};
 use crate::core::i18n::{Language, Texts};
 
 /// 画面上のノード情報
@@ -61,10 +61,9 @@ impl LayoutEngine {
             ids.sort_by_key(|id| tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
         }
 
-        let node_w = 120.0;
-        let node_h = 40.0;
+        let base_node_h = 60.0;
         let x_gap = 50.0;
-        let y_gap = 50.0;
+        let y_gap = 80.0;
 
         let mut nodes = Vec::new();
         let mut gens: Vec<usize> = by_gen.keys().copied().collect();
@@ -73,6 +72,14 @@ impl LayoutEngine {
         for g in gens {
             if let Some(ids) = by_gen.get(&g) {
                 for (i, id) in ids.iter().enumerate() {
+                    // 人物名からノード幅を計算
+                    let person_name = tree.persons.get(id).map(|p| p.name.as_str()).unwrap_or("Unknown");
+                    // 日本語も含めた文字列の表示幅を推定（1文字あたり約14ピクセル）
+                    let char_count = person_name.chars().count();
+                    let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
+                    let node_w = estimated_width;
+                    let node_h = base_node_h;
+                    
                     let (x, y) = if let Some(person) = tree.persons.get(id) {
                         person.position
                     } else {
@@ -199,6 +206,61 @@ impl LayoutEngine {
         let x = (pos.x / grid_size).round() * grid_size;
         let y = (pos.y / grid_size).round() * grid_size;
         egui::pos2(x, y)
+    }
+
+    /// イベント名からノードサイズを計算
+    pub fn calculate_event_node_size(event_name: &str, lang: Language) -> (f32, f32) {
+        let base_node_h = 50.0;
+        let padding_h = 20.0;
+        
+        let text = if event_name.is_empty() {
+            Texts::get("new_event", lang)
+        } else {
+            event_name.to_string()
+        };
+        
+        // 文字数から幅を推定（1文字あたり約13ピクセル）
+        let char_count = text.chars().count();
+        let estimated_width = (char_count as f32 * 13.0 + padding_h).max(120.0).min(250.0);
+        
+        (estimated_width, base_node_h)
+    }
+
+    /// イベントの画面矩形を計算
+    pub fn calculate_event_screen_rect(
+        event: &Event,
+        origin: egui::Pos2,
+        zoom: f32,
+        pan: egui::Vec2,
+        lang: Language,
+    ) -> egui::Rect {
+        let to_screen = |p: egui::Pos2| -> egui::Pos2 {
+            let v = (p - origin) * zoom;
+            origin + v + pan
+        };
+        
+        let (node_w, node_h) = Self::calculate_event_node_size(&event.name, lang);
+        let world_pos = egui::pos2(event.position.0, event.position.1);
+        let screen_pos = to_screen(world_pos);
+        
+        egui::Rect::from_min_size(screen_pos, egui::vec2(node_w * zoom, node_h * zoom))
+    }
+
+    /// すべてのイベントの画面矩形を計算
+    pub fn calculate_event_screen_rects(
+        events: &HashMap<EventId, Event>,
+        origin: egui::Pos2,
+        zoom: f32,
+        pan: egui::Vec2,
+        lang: Language,
+    ) -> HashMap<EventId, egui::Rect> {
+        events
+            .iter()
+            .map(|(id, event)| {
+                let rect = Self::calculate_event_screen_rect(event, origin, zoom, pan, lang);
+                (*id, rect)
+            })
+            .collect()
     }
 }
 
@@ -468,5 +530,151 @@ mod tests {
         
         assert_eq!(snapped.x, 100.0);
         assert_eq!(snapped.y, 550.0);
+    }
+
+    #[test]
+    fn test_calculate_event_node_size_empty_name() {
+        let (width, height) = LayoutEngine::calculate_event_node_size("", Language::Japanese);
+        
+        // 空の名前の場合、"New Event"が使用される
+        assert!(width >= 120.0);
+        assert!(width <= 250.0);
+        assert_eq!(height, 50.0);
+    }
+
+    #[test]
+    fn test_calculate_event_node_size_short_name() {
+        let (width, height) = LayoutEngine::calculate_event_node_size("Test", Language::English);
+        
+        // 短い名前の場合、最小幅120.0が適用される
+        assert_eq!(width, 120.0);
+        assert_eq!(height, 50.0);
+    }
+
+    #[test]
+    fn test_calculate_event_node_size_long_name() {
+        let long_name = "This is a very long event name that should be truncated";
+        let (width, height) = LayoutEngine::calculate_event_node_size(long_name, Language::English);
+        
+        // 長い名前の場合、最大幅250.0が適用される
+        assert_eq!(width, 250.0);
+        assert_eq!(height, 50.0);
+    }
+
+    #[test]
+    fn test_calculate_event_node_size_japanese() {
+        let (width, height) = LayoutEngine::calculate_event_node_size("イベント", Language::Japanese);
+        
+        assert!(width >= 120.0);
+        assert!(width <= 250.0);
+        assert_eq!(height, 50.0);
+    }
+
+    #[test]
+    fn test_calculate_event_screen_rect() {
+        let mut tree = FamilyTree::default();
+        let event_id = tree.add_event(
+            "Test Event".to_string(),
+            None,
+            "Description".to_string(),
+            (100.0, 200.0),
+            (255, 255, 200),
+        );
+        
+        let event = tree.events.get(&event_id).unwrap();
+        let origin = egui::pos2(0.0, 0.0);
+        let zoom = 1.0;
+        let pan = egui::vec2(0.0, 0.0);
+        
+        let rect = LayoutEngine::calculate_event_screen_rect(event, origin, zoom, pan, Language::English);
+        
+        assert_eq!(rect.left(), 100.0);
+        assert_eq!(rect.top(), 200.0);
+        assert_eq!(rect.height(), 50.0);
+    }
+
+    #[test]
+    fn test_calculate_event_screen_rect_with_zoom() {
+        let mut tree = FamilyTree::default();
+        let event_id = tree.add_event(
+            "Test".to_string(),
+            None,
+            "".to_string(),
+            (100.0, 100.0),
+            (255, 255, 200),
+        );
+        
+        let event = tree.events.get(&event_id).unwrap();
+        let origin = egui::pos2(0.0, 0.0);
+        let zoom = 2.0;
+        let pan = egui::vec2(0.0, 0.0);
+        
+        let rect = LayoutEngine::calculate_event_screen_rect(event, origin, zoom, pan, Language::English);
+        
+        // ズーム2.0の場合、位置とサイズが2倍になる
+        assert_eq!(rect.left(), 200.0);
+        assert_eq!(rect.top(), 200.0);
+        assert_eq!(rect.height(), 100.0);
+    }
+
+    #[test]
+    fn test_calculate_event_screen_rects() {
+        let mut tree = FamilyTree::default();
+        let event1_id = tree.add_event(
+            "Event 1".to_string(),
+            None,
+            "".to_string(),
+            (100.0, 100.0),
+            (255, 255, 200),
+        );
+        let event2_id = tree.add_event(
+            "Event 2".to_string(),
+            None,
+            "".to_string(),
+            (200.0, 200.0),
+            (200, 255, 255),
+        );
+        
+        let origin = egui::pos2(0.0, 0.0);
+        let zoom = 1.0;
+        let pan = egui::vec2(0.0, 0.0);
+        
+        let rects = LayoutEngine::calculate_event_screen_rects(
+            &tree.events,
+            origin,
+            zoom,
+            pan,
+            Language::Japanese,
+        );
+        
+        assert_eq!(rects.len(), 2);
+        assert!(rects.contains_key(&event1_id));
+        assert!(rects.contains_key(&event2_id));
+        
+        let rect1 = rects.get(&event1_id).unwrap();
+        let rect2 = rects.get(&event2_id).unwrap();
+        
+        assert_eq!(rect1.left(), 100.0);
+        assert_eq!(rect1.top(), 100.0);
+        assert_eq!(rect2.left(), 200.0);
+        assert_eq!(rect2.top(), 200.0);
+    }
+
+    #[test]
+    fn test_calculate_event_screen_rects_empty() {
+        let tree = FamilyTree::default();
+        let origin = egui::pos2(0.0, 0.0);
+        let zoom = 1.0;
+        let pan = egui::vec2(0.0, 0.0);
+        
+        let rects = LayoutEngine::calculate_event_screen_rects(
+            &tree.events,
+            origin,
+            zoom,
+            pan,
+            Language::English,
+        );
+        
+        assert_eq!(rects.len(), 0);
     }
 }
