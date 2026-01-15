@@ -9,7 +9,7 @@ impl FamiliesTabRenderer for App {
     fn render_families_tab(&mut self, ui: &mut egui::Ui, t: impl Fn(&str) -> String) {
         ui.heading(t("manage_families"));
         
-        if ui.add_sized([ui.available_width(), 40.0], egui::Button::new(t("add_new_family"))).clicked() {
+        if ui.button(t("add_new_family")).clicked() {
             let color = (
                 (self.family_editor.new_family_color[0] * 255.0) as u8,
                 (self.family_editor.new_family_color[1] * 255.0) as u8,

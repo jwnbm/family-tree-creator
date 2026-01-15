@@ -10,6 +10,8 @@ pub trait PersonsTabRenderer {
 
 impl PersonsTabRenderer for App {
     fn render_persons_tab(&mut self, ui: &mut egui::Ui, t: impl Fn(&str) -> String) {
+        ui.heading(t("manage_persons"));
+        
         // 新規人物追加ボタン
         if ui.button(t("add_new_person")).clicked() {
             // 現在表示されているキャンバスの左上を計算

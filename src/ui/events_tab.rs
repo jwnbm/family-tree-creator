@@ -1,6 +1,6 @@
 use eframe::egui;
 use crate::app::App;
-use crate::core::tree::{EventRelationType, EventId};
+use crate::core::tree::EventRelationType;
 
 pub trait EventsTabRenderer {
     fn render_events_tab(&mut self, ui: &mut egui::Ui, t: impl Fn(&str) -> String);
@@ -14,32 +14,6 @@ impl EventsTabRenderer for App {
         if ui.button(t("add_new_event")).clicked() {
             self.event_editor.clear();
             self.event_editor.selected = None;
-        }
-        
-        ui.separator();
-        
-        // イベント一覧
-        let event_ids: Vec<EventId> = self.tree.events.keys().copied().collect();
-        for event_id in event_ids {
-            if let Some(event) = self.tree.events.get(&event_id) {
-                let label = if event.name.is_empty() {
-                    t("new_event")
-                } else {
-                    event.name.clone()
-                };
-                
-                if ui.selectable_label(
-                    self.event_editor.selected == Some(event_id),
-                    &label
-                ).clicked() {
-                    self.event_editor.selected = Some(event_id);
-                    self.event_editor.new_event_name = event.name.clone();
-                    self.event_editor.new_event_date = event.date.clone().unwrap_or_default();
-                    self.event_editor.new_event_description = event.description.clone();
-                    let (r, g, b) = event.color;
-                    self.event_editor.new_event_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
-                }
-            }
         }
         
         ui.separator();
