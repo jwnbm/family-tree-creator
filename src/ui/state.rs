@@ -152,7 +152,7 @@ pub struct FileState {
 impl FileState {
     pub fn new() -> Self {
         Self {
-            file_path: "tree.json".to_string(),
+            file_path: String::new(),
             status: String::new(),
         }
     }

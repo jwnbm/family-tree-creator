@@ -14,10 +14,19 @@ impl FileMenuRenderer for App {
         ui.menu_button(t("file_menu"), |ui| {
             // 新規作成
             if ui.button(t("new")).clicked() {
-                self.tree = FamilyTree::default();
-                self.person_editor.selected = None;
-                self.file.file_path = "tree.json".to_string();
-                self.file.status = t("new_tree_created");
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("JSON", &["json"])
+                    .set_file_name("tree.json")
+                    .save_file()
+                {
+                    self.tree = FamilyTree::default();
+                    self.person_editor.selected = None;
+                    self.family_editor.selected_family = None;
+                    self.event_editor.selected = None;
+                    self.file.file_path = path.display().to_string();
+                    self.file.status = t("new_tree_created");
+                    self.save();
+                }
                 ui.close();
             }
             
@@ -35,7 +44,19 @@ impl FileMenuRenderer for App {
             
             // 保存
             if ui.button(format!("{} (Ctrl+S)", t("save"))).clicked() {
-                self.save();
+                // ファイルパスが存在しない場合は名前を付けて保存
+                if self.file.file_path.is_empty() || !std::path::Path::new(&self.file.file_path).exists() {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("JSON", &["json"])
+                        .set_file_name(if self.file.file_path.is_empty() { "tree.json" } else { &self.file.file_path })
+                        .save_file()
+                    {
+                        self.file.file_path = path.display().to_string();
+                        self.save();
+                    }
+                } else {
+                    self.save();
+                }
                 ui.close();
             }
             
@@ -55,7 +76,19 @@ impl FileMenuRenderer for App {
         
         // キーボードショートカット
         if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::S)) {
-            self.save();
+            // ファイルパスが存在しない場合は名前を付けて保存
+            if self.file.file_path.is_empty() || !std::path::Path::new(&self.file.file_path).exists() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("JSON", &["json"])
+                    .set_file_name(if self.file.file_path.is_empty() { "tree.json" } else { &self.file.file_path })
+                    .save_file()
+                {
+                    self.file.file_path = path.display().to_string();
+                    self.save();
+                }
+            } else {
+                self.save();
+            }
         }
         if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::O)) {
             if let Some(path) = rfd::FileDialog::new()
