@@ -61,7 +61,10 @@ impl LayoutEngine {
             ids.sort_by_key(|id| tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
         }
 
-        let base_node_h = 60.0;
+        // 人物ノードの高さ：フォントサイズ14.0 + 上下パディング
+        let font_size = 14.0;
+        let padding_v = 16.0;
+        let base_node_h = font_size + padding_v;
         let x_gap = 50.0;
         let y_gap = 80.0;
 
@@ -210,7 +213,10 @@ impl LayoutEngine {
 
     /// イベント名からノードサイズを計算
     pub fn calculate_event_node_size(event_name: &str, lang: Language) -> (f32, f32) {
-        let base_node_h = 50.0;
+        // イベントノードの高さ：フォントサイズ13.0 + 上下パディング
+        let font_size = 13.0;
+        let padding_v = 16.0;
+        let base_node_h = font_size + padding_v;
         let padding_h = 20.0;
         
         let text = if event_name.is_empty() {
@@ -539,7 +545,7 @@ mod tests {
         // 空の名前の場合、"New Event"が使用される
         assert!(width >= 120.0);
         assert!(width <= 250.0);
-        assert_eq!(height, 50.0);
+        assert_eq!(height, 29.0);
     }
 
     #[test]
@@ -548,7 +554,7 @@ mod tests {
         
         // 短い名前の場合、最小幅120.0が適用される
         assert_eq!(width, 120.0);
-        assert_eq!(height, 50.0);
+        assert_eq!(height, 29.0);
     }
 
     #[test]
@@ -558,7 +564,7 @@ mod tests {
         
         // 長い名前の場合、最大幅250.0が適用される
         assert_eq!(width, 250.0);
-        assert_eq!(height, 50.0);
+        assert_eq!(height, 29.0);
     }
 
     #[test]
@@ -567,7 +573,7 @@ mod tests {
         
         assert!(width >= 120.0);
         assert!(width <= 250.0);
-        assert_eq!(height, 50.0);
+        assert_eq!(height, 29.0);
     }
 
     #[test]
@@ -590,7 +596,7 @@ mod tests {
         
         assert_eq!(rect.left(), 100.0);
         assert_eq!(rect.top(), 200.0);
-        assert_eq!(rect.height(), 50.0);
+        assert_eq!(rect.height(), 29.0);
     }
 
     #[test]
@@ -614,7 +620,7 @@ mod tests {
         // ズーム2.0の場合、位置とサイズが2倍になる
         assert_eq!(rect.left(), 200.0);
         assert_eq!(rect.top(), 200.0);
-        assert_eq!(rect.height(), 100.0);
+        assert_eq!(rect.height(), 58.0);
     }
 
     #[test]
