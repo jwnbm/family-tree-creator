@@ -75,23 +75,50 @@ impl LayoutEngine {
         for g in gens {
             if let Some(ids) = by_gen.get(&g) {
                 for (i, id) in ids.iter().enumerate() {
-                    // 人物名からノード幅を計算
                     let person = tree.persons.get(id);
                     let person_name = person.map(|p| p.name.as_str()).unwrap_or("Unknown");
-                    // 日本語も含めた文字列の表示幅を推定（1文字あたり約14ピクセル）
-                    let char_count = person_name.chars().count();
-                    let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
-                    let node_w = estimated_width;
                     
-                    // 写真表示モードの場合、高さを大きくする
-                    let node_h = if let Some(p) = person {
+                    // ノードのサイズを計算
+                    let (node_w, node_h) = if let Some(p) = person {
                         if p.display_mode == crate::core::tree::PersonDisplayMode::NameAndPhoto {
-                            base_node_h * 3.0  // 写真 + 名前用に高さを増やす
+                            // 写真表示モード：画像サイズを読み込んで倍率を適用
+                            if let Some(photo_path) = &p.photo_path {
+                                if let Ok(image_data) = std::fs::read(photo_path) {
+                                    if let Ok(image) = image::load_from_memory(&image_data) {
+                                        let img_w = image.width() as f32 * p.photo_scale;
+                                        let img_h = image.height() as f32 * p.photo_scale;
+                                        // 名前表示用のスペースを追加
+                                        let name_height = base_node_h;
+                                        (img_w, img_h + name_height)
+                                    } else {
+                                        // 画像読み込み失敗：デフォルトサイズ
+                                        let char_count = person_name.chars().count();
+                                        let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
+                                        (estimated_width, base_node_h * 3.0)
+                                    }
+                                } else {
+                                    // ファイル読み込み失敗：デフォルトサイズ
+                                    let char_count = person_name.chars().count();
+                                    let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
+                                    (estimated_width, base_node_h * 3.0)
+                                }
+                            } else {
+                                // 写真パスなし：デフォルトサイズ
+                                let char_count = person_name.chars().count();
+                                let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
+                                (estimated_width, base_node_h * 3.0)
+                            }
                         } else {
-                            base_node_h
+                            // 名前のみモード
+                            let char_count = person_name.chars().count();
+                            let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
+                            (estimated_width, base_node_h)
                         }
                     } else {
-                        base_node_h
+                        // personがない場合
+                        let char_count = person_name.chars().count();
+                        let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
+                        (estimated_width, base_node_h)
                     };
                     
                     let (x, y) = if let Some(person) = person {

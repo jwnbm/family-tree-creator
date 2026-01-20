@@ -42,6 +42,7 @@ impl PersonsTabRenderer for App {
                 self.person_editor.new_death = person.death.clone().unwrap_or_default();
                 self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                 self.person_editor.new_display_mode = person.display_mode;
+                self.person_editor.new_photo_scale = person.photo_scale;
             }
             self.file.status = t("new_person_added");
         }
@@ -106,6 +107,14 @@ impl PersonsTabRenderer for App {
             ui.radio_value(&mut self.person_editor.new_display_mode, PersonDisplayMode::NameOnly, t("name_only"));
             ui.radio_value(&mut self.person_editor.new_display_mode, PersonDisplayMode::NameAndPhoto, t("name_and_photo"));
         });
+        
+        // 写真倍率（写真表示モードの場合のみ）
+        if self.person_editor.new_display_mode == PersonDisplayMode::NameAndPhoto {
+            ui.horizontal(|ui| {
+                ui.label(t("photo_scale"));
+                ui.add(egui::Slider::new(&mut self.person_editor.new_photo_scale, 0.1..=3.0).text("×"));
+            });
+        }
 
         // 更新・キャンセル・削除ボタン
         ui.horizontal(|ui| {
@@ -128,6 +137,7 @@ impl PersonsTabRenderer for App {
                                     Some(self.person_editor.new_photo_path.trim().to_string())
                                 };
                                 p.display_mode = self.person_editor.new_display_mode;
+                                p.photo_scale = self.person_editor.new_photo_scale.clamp(0.1, 3.0);
                                 self.file.status = t("person_updated");
                             } else {
                                 self.file.status = t("name_required");

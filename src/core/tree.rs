@@ -48,6 +48,12 @@ pub struct Person {
     pub photo_path: Option<String>, // 写真ファイルのパス
     #[serde(default)]
     pub display_mode: PersonDisplayMode, // 表示モード
+    #[serde(default = "default_photo_scale")]
+    pub photo_scale: f32, // 写真の倍率（デフォルト: 1.0）
+}
+
+fn default_photo_scale() -> f32 {
+    1.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,8 +145,9 @@ impl FamilyTree {
                 position,
                 deceased,
                 death,
-                photo_path: None,
+                photo_path: Some("photo/DefaultImage.gif".to_string()),
                 display_mode: PersonDisplayMode::NameOnly,
+                photo_scale: 1.0,
             },
         );
         id

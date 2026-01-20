@@ -141,6 +141,7 @@ impl Texts {
             "name_and_photo" => "名前と写真",
             "choose_photo" => "写真を選択...",
             "clear_photo" => "写真をクリア",
+            "photo_scale" => "写真倍率:",
             _ => {
                 if cfg!(debug_assertions) {
                     eprintln!("[i18n Warning] Unknown translation key (ja): '{}'", key);
@@ -272,6 +273,7 @@ impl Texts {
             "name_and_photo" => "Name and Photo",
             "choose_photo" => "Choose Photo...",
             "clear_photo" => "Clear Photo",
+            "photo_scale" => "Photo Scale:",
             _ => {
                 if cfg!(debug_assertions) {
                     eprintln!("[i18n Warning] Unknown translation key (en): '{}'", key);

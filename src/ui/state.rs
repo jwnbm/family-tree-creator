@@ -15,6 +15,7 @@ pub struct PersonEditorState {
     pub new_death: String,
     pub new_photo_path: String,
     pub new_display_mode: PersonDisplayMode,
+    pub new_photo_scale: f32,
 }
 
 impl PersonEditorState {
@@ -27,6 +28,7 @@ impl PersonEditorState {
         self.new_death.clear();
         self.new_photo_path.clear();
         self.new_display_mode = PersonDisplayMode::NameOnly;
+        self.new_photo_scale = 1.0;
     }
 }
 

@@ -129,8 +129,10 @@ impl NodeRenderer for App {
                     if person.display_mode == crate::core::tree::PersonDisplayMode::NameAndPhoto {
                         if let Some(photo_path) = &person.photo_path {
                             if !photo_path.is_empty() {
-                                // 写真領域（上部）
-                                let photo_height = r.height() * 0.6;
+                                // 名前表示領域の高さを固定（30.0ピクセル）
+                                let name_area_height = 30.0;
+                                // 写真領域は残りの高さ全体
+                                let photo_height = r.height() - name_area_height;
                                 let photo_rect = egui::Rect::from_min_size(
                                     r.min,
                                     egui::vec2(r.width(), photo_height),
@@ -162,8 +164,8 @@ impl NodeRenderer for App {
                                     }
                                 }
                                 
-                                // 名前は下部に表示
-                                let text_center = egui::pos2(r.center().x, r.min.y + photo_height + (r.height() - photo_height) / 2.0);
+                                // 名前は下部の固定領域に表示
+                                let text_center = egui::pos2(r.center().x, r.min.y + photo_height + name_area_height / 2.0);
                                 let text = LayoutEngine::person_label(&self.tree, n.id);
                                 painter.text(
                                     text_center,
@@ -289,6 +291,7 @@ impl NodeInteractionHandler for App {
                         self.person_editor.new_death = person.death.clone().unwrap_or_default();
                         self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                         self.person_editor.new_display_mode = person.display_mode;
+                        self.person_editor.new_photo_scale = person.photo_scale;
                     }
                 }
             }
