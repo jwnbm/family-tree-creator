@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::core::tree::{Gender, PersonId, EventId, EventRelationType};
+use crate::core::tree::{Gender, PersonId, EventId, EventRelationType, PersonDisplayMode};
 use crate::core::i18n::Language;
 use uuid::Uuid;
 
@@ -13,6 +13,8 @@ pub struct PersonEditorState {
     pub new_memo: String,
     pub new_deceased: bool,
     pub new_death: String,
+    pub new_photo_path: String,
+    pub new_display_mode: PersonDisplayMode,
 }
 
 impl PersonEditorState {
@@ -23,6 +25,8 @@ impl PersonEditorState {
         self.new_memo.clear();
         self.new_deceased = false;
         self.new_death.clear();
+        self.new_photo_path.clear();
+        self.new_display_mode = PersonDisplayMode::NameOnly;
     }
 }
 

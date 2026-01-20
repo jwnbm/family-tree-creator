@@ -1,6 +1,6 @@
 use eframe::egui;
 use crate::app::App;
-use crate::core::tree::{Gender, PersonId};
+use crate::core::tree::{Gender, PersonId, PersonDisplayMode};
 
 const DEFAULT_RELATION_KIND: &str = "biological";
 
@@ -40,6 +40,8 @@ impl PersonsTabRenderer for App {
                 self.person_editor.new_memo = person.memo.clone();
                 self.person_editor.new_deceased = person.deceased;
                 self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
+                self.person_editor.new_display_mode = person.display_mode;
             }
             self.file.status = t("new_person_added");
         }
@@ -78,6 +80,32 @@ impl PersonsTabRenderer for App {
         }
         ui.label(t("memo"));
         ui.text_edit_multiline(&mut self.person_editor.new_memo);
+        
+        // 写真パス
+        ui.horizontal(|ui| {
+            ui.label(t("photo_path"));
+            ui.text_edit_singleline(&mut self.person_editor.new_photo_path);
+            if ui.button(t("choose_photo")).clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Images", &["png", "jpg", "jpeg", "bmp", "gif"])
+                    .pick_file()
+                {
+                    self.person_editor.new_photo_path = path.display().to_string();
+                }
+            }
+            if !self.person_editor.new_photo_path.is_empty() {
+                if ui.button(t("clear_photo")).clicked() {
+                    self.person_editor.new_photo_path.clear();
+                }
+            }
+        });
+        
+        // 表示モード
+        ui.horizontal(|ui| {
+            ui.label(t("display_mode"));
+            ui.radio_value(&mut self.person_editor.new_display_mode, PersonDisplayMode::NameOnly, t("name_only"));
+            ui.radio_value(&mut self.person_editor.new_display_mode, PersonDisplayMode::NameAndPhoto, t("name_and_photo"));
+        });
 
         // 更新・キャンセル・削除ボタン
         ui.horizontal(|ui| {
@@ -94,6 +122,12 @@ impl PersonsTabRenderer for App {
                                 p.death = self.person_editor.new_deceased
                                     .then(|| App::parse_optional_field(&self.person_editor.new_death))
                                     .flatten();
+                                p.photo_path = if self.person_editor.new_photo_path.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(self.person_editor.new_photo_path.trim().to_string())
+                                };
+                                p.display_mode = self.person_editor.new_display_mode;
                                 self.file.status = t("person_updated");
                             } else {
                                 self.file.status = t("name_required");

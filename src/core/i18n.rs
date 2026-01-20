@@ -135,6 +135,12 @@ impl Texts {
             "event_updated" => "イベント情報を更新しました",
             "event_deleted" => "イベントを削除しました",
             "relation_added" => "関係を追加しました",
+            "photo_path" => "写真パス:",
+            "display_mode" => "表示モード:",
+            "name_only" => "名前のみ",
+            "name_and_photo" => "名前と写真",
+            "choose_photo" => "写真を選択...",
+            "clear_photo" => "写真をクリア",
             _ => {
                 if cfg!(debug_assertions) {
                     eprintln!("[i18n Warning] Unknown translation key (ja): '{}'", key);
@@ -260,6 +266,12 @@ impl Texts {
             "event_updated" => "Event updated",
             "event_deleted" => "Event deleted",
             "relation_added" => "Relation added",
+            "photo_path" => "Photo Path:",
+            "display_mode" => "Display Mode:",
+            "name_only" => "Name Only",
+            "name_and_photo" => "Name and Photo",
+            "choose_photo" => "Choose Photo...",
+            "clear_photo" => "Clear Photo",
             _ => {
                 if cfg!(debug_assertions) {
                     eprintln!("[i18n Warning] Unknown translation key (en): '{}'", key);

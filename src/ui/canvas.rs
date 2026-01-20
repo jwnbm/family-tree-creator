@@ -101,7 +101,8 @@ impl NodeRenderer for App {
                 let is_sel = self.person_editor.selected == Some(n.id);
                 let is_dragging = self.canvas.dragging_node == Some(n.id);
                 
-                let gender = self.tree.persons.get(&n.id).map(|p| p.gender).unwrap_or(Gender::Unknown);
+                let person = self.tree.persons.get(&n.id);
+                let gender = person.map(|p| p.gender).unwrap_or(Gender::Unknown);
                 let base_color = match gender {
                     Gender::Male => egui::Color32::from_rgb(173, 216, 230),
                     Gender::Female => egui::Color32::from_rgb(255, 182, 193),
@@ -123,14 +124,88 @@ impl NodeRenderer for App {
                 painter.rect_filled(*r, NODE_CORNER_RADIUS, fill);
                 painter.rect_stroke(*r, NODE_CORNER_RADIUS, egui::Stroke::new(1.0, egui::Color32::GRAY), egui::epaint::StrokeKind::Outside);
 
-                let text = LayoutEngine::person_label(&self.tree, n.id);
-                painter.text(
-                    r.center(),
-                    egui::Align2::CENTER_CENTER,
-                    text,
-                    egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
-                    egui::Color32::BLACK,
-                );
+                // 写真表示モードの場合、写真を表示
+                if let Some(person) = person {
+                    if person.display_mode == crate::core::tree::PersonDisplayMode::NameAndPhoto {
+                        if let Some(photo_path) = &person.photo_path {
+                            if !photo_path.is_empty() {
+                                // 写真領域（上部）
+                                let photo_height = r.height() * 0.6;
+                                let photo_rect = egui::Rect::from_min_size(
+                                    r.min,
+                                    egui::vec2(r.width(), photo_height),
+                                );
+                                
+                                // 写真読み込みを試みる
+                                if let Ok(image_data) = std::fs::read(photo_path) {
+                                    if let Ok(image) = image::load_from_memory(&image_data) {
+                                        let size = [image.width() as _, image.height() as _];
+                                        let rgba = image.to_rgba8();
+                                        let pixels = rgba.as_flat_samples();
+                                        let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                                            size,
+                                            pixels.as_slice(),
+                                        );
+                                        
+                                        let texture = ui.ctx().load_texture(
+                                            format!("person_photo_{}", n.id),
+                                            color_image,
+                                            Default::default(),
+                                        );
+                                        
+                                        painter.image(
+                                            texture.id(),
+                                            photo_rect,
+                                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                                            egui::Color32::WHITE,
+                                        );
+                                    }
+                                }
+                                
+                                // 名前は下部に表示
+                                let text_center = egui::pos2(r.center().x, r.min.y + photo_height + (r.height() - photo_height) / 2.0);
+                                let text = LayoutEngine::person_label(&self.tree, n.id);
+                                painter.text(
+                                    text_center,
+                                    egui::Align2::CENTER_CENTER,
+                                    text,
+                                    egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
+                                    egui::Color32::BLACK,
+                                );
+                            } else {
+                                // 写真パスが空の場合は名前のみ表示
+                                let text = LayoutEngine::person_label(&self.tree, n.id);
+                                painter.text(
+                                    r.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    text,
+                                    egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
+                                    egui::Color32::BLACK,
+                                );
+                            }
+                        } else {
+                            // photo_pathがNoneの場合は名前のみ表示
+                            let text = LayoutEngine::person_label(&self.tree, n.id);
+                            painter.text(
+                                r.center(),
+                                egui::Align2::CENTER_CENTER,
+                                text,
+                                egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
+                                egui::Color32::BLACK,
+                            );
+                        }
+                    } else {
+                        // 名前のみモード
+                        let text = LayoutEngine::person_label(&self.tree, n.id);
+                        painter.text(
+                            r.center(),
+                            egui::Align2::CENTER_CENTER,
+                            text,
+                            egui::FontId::proportional(14.0 * self.canvas.zoom.clamp(0.7, 1.2)),
+                            egui::Color32::BLACK,
+                        );
+                    }
+                }
                 
                 // ツールチップを表示
                 let node_id = ui.id().with(n.id);
@@ -212,6 +287,8 @@ impl NodeInteractionHandler for App {
                         self.person_editor.new_memo = person.memo.clone();
                         self.person_editor.new_deceased = person.deceased;
                         self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                        self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
+                        self.person_editor.new_display_mode = person.display_mode;
                     }
                 }
             }

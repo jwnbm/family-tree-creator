@@ -18,6 +18,18 @@ impl Default for Gender {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PersonDisplayMode {
+    NameOnly,
+    NameAndPhoto,
+}
+
+impl Default for PersonDisplayMode {
+    fn default() -> Self {
+        PersonDisplayMode::NameOnly
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Person {
     pub id: PersonId,
@@ -32,6 +44,10 @@ pub struct Person {
     pub deceased: bool, // 死亡フラグ
     #[serde(default)]
     pub death: Option<String>, // 死亡年月日 "YYYY-MM-DD" など
+    #[serde(default)]
+    pub photo_path: Option<String>, // 写真ファイルのパス
+    #[serde(default)]
+    pub display_mode: PersonDisplayMode, // 表示モード
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,6 +139,8 @@ impl FamilyTree {
                 position,
                 deceased,
                 death,
+                photo_path: None,
+                display_mode: PersonDisplayMode::NameOnly,
             },
         );
         id

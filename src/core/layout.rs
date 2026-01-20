@@ -76,14 +76,25 @@ impl LayoutEngine {
             if let Some(ids) = by_gen.get(&g) {
                 for (i, id) in ids.iter().enumerate() {
                     // 人物名からノード幅を計算
-                    let person_name = tree.persons.get(id).map(|p| p.name.as_str()).unwrap_or("Unknown");
+                    let person = tree.persons.get(id);
+                    let person_name = person.map(|p| p.name.as_str()).unwrap_or("Unknown");
                     // 日本語も含めた文字列の表示幅を推定（1文字あたり約14ピクセル）
                     let char_count = person_name.chars().count();
                     let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
                     let node_w = estimated_width;
-                    let node_h = base_node_h;
                     
-                    let (x, y) = if let Some(person) = tree.persons.get(id) {
+                    // 写真表示モードの場合、高さを大きくする
+                    let node_h = if let Some(p) = person {
+                        if p.display_mode == crate::core::tree::PersonDisplayMode::NameAndPhoto {
+                            base_node_h * 3.0  // 写真 + 名前用に高さを増やす
+                        } else {
+                            base_node_h
+                        }
+                    } else {
+                        base_node_h
+                    };
+                    
+                    let (x, y) = if let Some(person) = person {
                         person.position
                     } else {
                         let auto_x = origin.x + (i as f32) * (node_w + x_gap);
