@@ -6,11 +6,41 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
+/// ログレベル
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogLevel {
+    Critical,
+    Error,
+    Warning,
+    Information,
+}
+
+impl LogLevel {
+    pub fn as_str(&self) -> &str {
+        match self {
+            LogLevel::Critical => "CRITICAL",
+            LogLevel::Error => "ERROR",
+            LogLevel::Warning => "WARNING",
+            LogLevel::Information => "INFO",
+        }
+    }
+    
+    pub fn color(&self) -> egui::Color32 {
+        match self {
+            LogLevel::Critical => egui::Color32::from_rgb(255, 0, 0),      // 赤
+            LogLevel::Error => egui::Color32::from_rgb(255, 100, 100),     // オレンジ赤
+            LogLevel::Warning => egui::Color32::from_rgb(255, 165, 0),     // オレンジ
+            LogLevel::Information => egui::Color32::from_rgb(100, 150, 255), // 青
+        }
+    }
+}
+
 /// ログメッセージ
 #[derive(Clone)]
 pub struct LogMessage {
     pub message: String,
     pub timestamp: String,
+    pub level: LogLevel,
 }
 
 /// ログ状態
@@ -32,16 +62,21 @@ impl Default for LogState {
 
 impl LogState {
     pub fn add(&mut self, message: String) {
+        self.add_with_level(message, LogLevel::Information);
+    }
+    
+    pub fn add_with_level(&mut self, message: String, level: LogLevel) {
         let now = chrono::Local::now();
         let timestamp = now.format("%H:%M:%S").to_string();
         
         self.messages.push(LogMessage {
             message: message.clone(),
             timestamp: timestamp.clone(),
+            level,
         });
         
         // ファイルに出力
-        self.write_to_file(&timestamp, &message);
+        self.write_to_file(&timestamp, level, &message);
         
         // 最大数を超えた場合は古いものから削除
         if self.messages.len() > self.max_messages {
@@ -68,14 +103,14 @@ impl LogState {
     }
     
     /// ログをファイルに書き込み
-    fn write_to_file(&self, timestamp: &str, message: &str) {
+    fn write_to_file(&self, timestamp: &str, level: LogLevel, message: &str) {
         if let Some(path) = &self.log_file_path {
             if let Ok(mut file) = OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(path)
             {
-                let _ = writeln!(file, "[{}] {}", timestamp, message);
+                let _ = writeln!(file, "[{}] [{}] {}", timestamp, level.as_str(), message);
             }
         }
     }

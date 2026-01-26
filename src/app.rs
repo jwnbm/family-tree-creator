@@ -6,7 +6,7 @@ use crate::core::i18n::Texts;
 use crate::ui::{
     FileMenuRenderer, HelpMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, EventsTabRenderer, SettingsTabRenderer, CanvasRenderer,
     PersonEditorState, RelationEditorState, FamilyEditorState, EventEditorState,
-    CanvasState, FileState, UiState, SideTab, LogState
+    CanvasState, FileState, UiState, SideTab, LogState, LogLevel
 };
 
 // 定数
@@ -65,12 +65,12 @@ impl App {
                 },
                 Err(e) => {
                     self.file.status = format!("Save error: {e}");
-                    self.log.add(format!("Save error: {e}"));
+                    self.log.add_with_level(format!("Save error: {e}"), LogLevel::Error);
                 },
             },
             Err(e) => {
                 self.file.status = format!("Serialize error: {e}");
-                self.log.add(format!("Serialize error: {e}"));
+                self.log.add_with_level(format!("Serialize error: {e}"), LogLevel::Error);
             },
         }
     }
@@ -88,12 +88,12 @@ impl App {
                 }
                 Err(e) => {
                     self.file.status = format!("Parse error: {e}");
-                    self.log.add(format!("Parse error: {e}"));
+                    self.log.add_with_level(format!("Parse error: {e}"), LogLevel::Error);
                 },
             },
             Err(e) => {
                 self.file.status = format!("Read error: {e}");
-                self.log.add(format!("Read error: {e}"));
+                self.log.add_with_level(format!("Read error: {e}"), LogLevel::Error);
             },
         }
     }
@@ -175,6 +175,11 @@ impl eframe::App for App {
                                 ui.label(
                                     egui::RichText::new(&msg.timestamp)
                                         .color(egui::Color32::GRAY)
+                                        .monospace()
+                                );
+                                ui.label(
+                                    egui::RichText::new(format!("[{}]", msg.level.as_str()))
+                                        .color(msg.level.color())
                                         .monospace()
                                 );
                                 ui.label(&msg.message);
