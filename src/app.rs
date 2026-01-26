@@ -43,7 +43,7 @@ impl Default for App {
         };
         
         // logディレクトリを作成し、ログファイルを初期化
-        if let Err(e) = app.log.set_log_file("log") {
+        if let Err(e) = app.log.set_log_file("logs") {
             eprintln!("Failed to create log directory: {}", e);
         }
         

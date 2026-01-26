@@ -60,7 +60,7 @@ impl LogState {
         
         // ログファイル名（日時を含む）
         let now = chrono::Local::now();
-        let filename = format!("log_{}.txt", now.format("%Y%m%d_%H%M%S"));
+        let filename = format!("{}.log", now.format("%Y%m%d_%H%M%S"));
         let log_path = PathBuf::from(log_dir).join(filename);
         
         self.log_file_path = Some(log_path);
