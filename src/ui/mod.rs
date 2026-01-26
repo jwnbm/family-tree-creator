@@ -14,4 +14,4 @@ pub use persons_tab::PersonsTabRenderer;
 pub use families_tab::FamiliesTabRenderer;
 pub use events_tab::EventsTabRenderer;
 pub use settings_tab::SettingsTabRenderer;
-pub use canvas::CanvasRenderer;
+pub use canvas::*;
