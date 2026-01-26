@@ -41,7 +41,8 @@ impl Default for App {
             ui: UiState::default(),
             log: LogState::default(),
         };
-        app.log.add("アプリケーションを起動しました".to_string());
+        let t = |key: &str| Texts::get(key, app.ui.language);
+        app.log.add(t("log_app_started"));
         app
     }
 }
@@ -54,16 +55,16 @@ impl App {
             Ok(s) => match fs::write(&self.file.file_path, s) {
                 Ok(_) => {
                     self.file.status = format!("{}: {}", t("saved"), self.file.file_path);
-                    self.log.add(format!("ファイルを保存しました: {}", self.file.file_path));
+                    self.log.add(format!("{}: {}", t("log_file_saved"), self.file.file_path));
                 },
                 Err(e) => {
                     self.file.status = format!("Save error: {e}");
-                    self.log.add(format!("保存エラー: {e}"));
+                    self.log.add(format!("Save error: {e}"));
                 },
             },
             Err(e) => {
                 self.file.status = format!("Serialize error: {e}");
-                self.log.add(format!("シリアライズエラー: {e}"));
+                self.log.add(format!("Serialize error: {e}"));
             },
         }
     }
@@ -77,16 +78,16 @@ impl App {
                     self.tree = tree;
                     self.person_editor.selected = None;
                     self.file.status = format!("{}: {}", t("loaded"), self.file.file_path);
-                    self.log.add(format!("ファイルを読み込みました: {}", self.file.file_path));
+                    self.log.add(format!("{}: {}", t("log_file_loaded"), self.file.file_path));
                 }
                 Err(e) => {
                     self.file.status = format!("Parse error: {e}");
-                    self.log.add(format!("パースエラー: {e}"));
+                    self.log.add(format!("Parse error: {e}"));
                 },
             },
             Err(e) => {
                 self.file.status = format!("Read error: {e}");
-                self.log.add(format!("読み込みエラー: {e}"));
+                self.log.add(format!("Read error: {e}"));
             },
         }
     }

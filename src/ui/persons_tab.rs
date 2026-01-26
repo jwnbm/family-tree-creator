@@ -45,7 +45,7 @@ impl PersonsTabRenderer for App {
                 self.person_editor.new_photo_scale = person.photo_scale;
             }
             self.file.status = t("new_person_added");
-            self.log.add(format!("新しい人物を追加しました: {}", t("new_person")));
+            self.log.add(format!("{}: {}", t("log_person_added"), t("new_person")));
         }
 
         ui.separator();
@@ -158,7 +158,7 @@ impl PersonsTabRenderer for App {
                         self.person_editor.selected_ids.clear();
                         self.clear_person_form();
                         self.file.status = t("deleted");
-                        self.log.add(format!("人物を削除しました: {}", person_name));
+                        self.log.add(format!("{}: {}", t("log_person_deleted"), person_name));
                     }
                 }
             }

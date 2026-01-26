@@ -19,7 +19,7 @@ impl FamiliesTabRenderer for App {
             self.family_editor.selected_family = Some(new_id);
             self.family_editor.new_family_name = t("new_family");
             self.file.status = t("new_family_added");
-            self.log.add(format!("新しい家族を追加しました: {}", t("new_family")));
+            self.log.add(format!("{}: {}", t("log_family_added"), t("new_family")));
         }
     
         ui.separator();
@@ -66,7 +66,7 @@ impl FamiliesTabRenderer for App {
                                             .unwrap_or_default();
                                         self.tree.remove_member_from_family(family_id, *member_id);
                                         self.file.status = t("member_removed");
-                                        self.log.add(format!("家族からメンバーを削除しました: {} から {}", family_name, person_name));
+                                        self.log.add(format!("{}: {} {} {}", t("log_family_member_removed"), person_name, t("log_from"), family_name));
                                     }
                                 });
                             }
@@ -113,7 +113,7 @@ impl FamiliesTabRenderer for App {
                             self.tree.add_member_to_family(family_id, pid);
                             self.family_editor.family_member_pick = None;
                             self.file.status = t("member_added");
-                            self.log.add(format!("家族にメンバーを追加しました: {} に {}", family_name, person_name));
+                            self.log.add(format!("{}: {} {} {}", t("log_family_member_added"), person_name, t("log_to"), family_name));
                         }
                     }
                 }
@@ -135,7 +135,7 @@ impl FamiliesTabRenderer for App {
                             (self.family_editor.new_family_color[2] * 255.0) as u8,
                         ));
                         self.file.status = t("family_updated");
-                        self.log.add(format!("家族を更新しました: {} -> {}", old_name, family.name));
+                        self.log.add(format!("{}: {} {} {}", t("log_family_updated"), old_name, t("log_to"), family.name));
                     }
                 }
                 
@@ -155,7 +155,7 @@ impl FamiliesTabRenderer for App {
                     self.family_editor.new_family_name.clear();
                     self.family_editor.family_member_pick = None;
                     self.file.status = t("family_deleted");
-                    self.log.add(format!("家族を削除しました: {}", family_name));
+                    self.log.add(format!("{}: {}", t("log_family_deleted"), family_name));
                 }
             });
         }

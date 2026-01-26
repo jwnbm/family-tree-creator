@@ -58,7 +58,7 @@ impl EventsTabRenderer for App {
                     let event_id = self.tree.add_event(name.clone(), date, description, visible_left_top, color);
                     self.event_editor.selected = Some(event_id);
                     self.file.status = t("new_event_added");
-                    self.log.add(format!("新しいイベントを追加しました: {}", if name.is_empty() { t("new_event") } else { name }));
+                    self.log.add(format!("{}: {}", t("log_event_added"), if name.is_empty() { t("new_event") } else { name }));
                 }
             } else {
                 if ui.button(t("update")).clicked() {
@@ -74,7 +74,7 @@ impl EventsTabRenderer for App {
                                 (self.event_editor.new_event_color[2] * 255.0) as u8,
                             );
                             self.file.status = t("event_updated");
-                            self.log.add(format!("イベントを更新しました: {} -> {}", old_name, event.name));
+                            self.log.add(format!("{}: {} {} {}", t("log_event_updated"), old_name, t("log_to"), event.name));
                         }
                     }
                 }
@@ -88,7 +88,7 @@ impl EventsTabRenderer for App {
                         self.event_editor.selected = None;
                         self.event_editor.clear();
                         self.file.status = t("event_deleted");
-                        self.log.add(format!("イベントを削除しました: {}", event_name));
+                        self.log.add(format!("{}: {}", t("log_event_deleted"), event_name));
                     }
                 }
             }
@@ -129,7 +129,7 @@ impl EventsTabRenderer for App {
                             .unwrap_or_else(|| t("unknown"));
                         self.tree.remove_event_relation(event_id, person_id);
                         self.file.status = t("relation_removed");
-                        self.log.add(format!("イベント関係を削除しました: {} <-> {}", event_name, person_name));
+                        self.log.add(format!("{}: {} <-> {}", t("log_event_relation_removed"), event_name, person_name));
                     }
                 });
             }
@@ -177,7 +177,7 @@ impl EventsTabRenderer for App {
                     self.event_editor.person_pick = None;
                     self.event_editor.relation_memo.clear();
                     self.file.status = t("relation_added");
-                    self.log.add(format!("イベント関係を追加しました: {} <-> {}", event_name, person_name));
+                    self.log.add(format!("{}: {} <-> {}", t("log_event_relation_added"), event_name, person_name));
                 }
             }
         }
