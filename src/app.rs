@@ -2,7 +2,7 @@ use std::fs;
 
 use eframe::egui;
 use crate::core::tree::{FamilyTree, PersonId};
-use crate::core::i18n::Texts;
+use crate::core::i18n::{Texts, self as i18n};
 use crate::ui::{
     FileMenuRenderer, HelpMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, EventsTabRenderer, SettingsTabRenderer, CanvasRenderer,
     PersonEditorState, RelationEditorState, FamilyEditorState, EventEditorState,
@@ -118,6 +118,11 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let lang = self.ui.language;
         let t = |key: &str| Texts::get(key, lang);
+        
+        // i18n警告をログに出力
+        for warning in i18n::take_warnings() {
+            self.log.add_with_level(warning, LogLevel::Warning);
+        }
         
         // メニューバー
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {

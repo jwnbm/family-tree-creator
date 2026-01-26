@@ -13,6 +13,7 @@ pub enum LogLevel {
     Error,
     Warning,
     Information,
+    Debug,
 }
 
 impl LogLevel {
@@ -22,6 +23,7 @@ impl LogLevel {
             LogLevel::Error => "ERROR",
             LogLevel::Warning => "WARNING",
             LogLevel::Information => "INFO",
+            LogLevel::Debug => "DEBUG",
         }
     }
     
@@ -31,6 +33,7 @@ impl LogLevel {
             LogLevel::Error => egui::Color32::from_rgb(255, 100, 100),     // オレンジ赤
             LogLevel::Warning => egui::Color32::from_rgb(255, 165, 0),     // オレンジ
             LogLevel::Information => egui::Color32::from_rgb(100, 150, 255), // 青
+            LogLevel::Debug => egui::Color32::from_rgb(128, 128, 128),     // 灰色
         }
     }
 }

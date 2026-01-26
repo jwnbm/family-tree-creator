@@ -3,6 +3,26 @@
 /// このモジュールはアプリケーションの多言語対応を提供します。
 /// 現在、日本語と英語をサポートしています。
 
+use std::sync::Mutex;
+
+static I18N_WARNINGS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// i18n警告をバッファに追加
+fn add_warning(message: String) {
+    if let Ok(mut warnings) = I18N_WARNINGS.lock() {
+        warnings.push(message);
+    }
+}
+
+/// 警告を取得してバッファをクリア
+pub fn take_warnings() -> Vec<String> {
+    if let Ok(mut warnings) = I18N_WARNINGS.lock() {
+        std::mem::take(&mut *warnings)
+    } else {
+        Vec::new()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
     Japanese,
@@ -174,7 +194,9 @@ impl Texts {
             "log_to" => "へ",
             _ => {
                 if cfg!(debug_assertions) {
-                    eprintln!("[i18n Warning] Unknown translation key (ja): '{}'", key);
+                    let warning = format!("[i18n Warning] Unknown translation key (ja): '{}'", key);
+                    eprintln!("{}", warning);
+                    add_warning(warning);
                 }
                 key
             }
@@ -336,7 +358,9 @@ impl Texts {
             "log_to" => "to",
             _ => {
                 if cfg!(debug_assertions) {
-                    eprintln!("[i18n Warning] Unknown translation key (en): '{}'", key);
+                    let warning = format!("[i18n Warning] Unknown translation key (en): '{}'", key);
+                    eprintln!("{}", warning);
+                    add_warning(warning);
                 }
                 key
             }
