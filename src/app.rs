@@ -41,6 +41,12 @@ impl Default for App {
             ui: UiState::default(),
             log: LogState::default(),
         };
+        
+        // logディレクトリを作成し、ログファイルを初期化
+        if let Err(e) = app.log.set_log_file("log") {
+            eprintln!("Failed to create log directory: {}", e);
+        }
+        
         let t = |key: &str| Texts::get(key, app.ui.language);
         app.log.add(t("log_app_started"));
         app

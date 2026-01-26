@@ -2,6 +2,9 @@ use eframe::egui;
 use crate::core::tree::{Gender, PersonId, EventId, EventRelationType, PersonDisplayMode};
 use crate::core::i18n::Language;
 use uuid::Uuid;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
 
 /// ログメッセージ
 #[derive(Clone)]
@@ -14,6 +17,7 @@ pub struct LogMessage {
 pub struct LogState {
     pub messages: Vec<LogMessage>,
     pub max_messages: usize,
+    pub log_file_path: Option<PathBuf>,
 }
 
 impl Default for LogState {
@@ -21,6 +25,7 @@ impl Default for LogState {
         Self {
             messages: Vec::new(),
             max_messages: 100,
+            log_file_path: None,
         }
     }
 }
@@ -31,9 +36,12 @@ impl LogState {
         let timestamp = now.format("%H:%M:%S").to_string();
         
         self.messages.push(LogMessage {
-            message,
-            timestamp,
+            message: message.clone(),
+            timestamp: timestamp.clone(),
         });
+        
+        // ファイルに出力
+        self.write_to_file(&timestamp, &message);
         
         // 最大数を超えた場合は古いものから削除
         if self.messages.len() > self.max_messages {
@@ -43,6 +51,33 @@ impl LogState {
     
     pub fn clear(&mut self) {
         self.messages.clear();
+    }
+    
+    /// ログファイルパスを設定
+    pub fn set_log_file(&mut self, log_dir: &str) -> std::io::Result<()> {
+        // logディレクトリを作成
+        fs::create_dir_all(log_dir)?;
+        
+        // ログファイル名（日時を含む）
+        let now = chrono::Local::now();
+        let filename = format!("log_{}.txt", now.format("%Y%m%d_%H%M%S"));
+        let log_path = PathBuf::from(log_dir).join(filename);
+        
+        self.log_file_path = Some(log_path);
+        Ok(())
+    }
+    
+    /// ログをファイルに書き込み
+    fn write_to_file(&self, timestamp: &str, message: &str) {
+        if let Some(path) = &self.log_file_path {
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+            {
+                let _ = writeln!(file, "[{}] {}", timestamp, message);
+            }
+        }
     }
 }
 
