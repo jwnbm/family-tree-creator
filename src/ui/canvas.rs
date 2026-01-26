@@ -99,6 +99,7 @@ impl NodeRenderer for App {
         for n in nodes {
             if let Some(r) = screen_rects.get(&n.id) {
                 let is_sel = self.person_editor.selected == Some(n.id);
+                let is_multi_selected = self.person_editor.selected_ids.contains(&n.id);
                 let is_dragging = self.canvas.dragging_node == Some(n.id);
                 
                 let person = self.tree.persons.get(&n.id);
@@ -117,12 +118,29 @@ impl NodeRenderer for App {
                         Gender::Female => egui::Color32::from_rgb(255, 220, 230),
                         Gender::Unknown => egui::Color32::from_rgb(200, 230, 255),
                     }
+                } else if is_multi_selected {
+                    // 複数選択されているが最後の選択ではないノードは薄い色
+                    match gender {
+                        Gender::Male => egui::Color32::from_rgb(190, 225, 245),
+                        Gender::Female => egui::Color32::from_rgb(255, 210, 220),
+                        Gender::Unknown => egui::Color32::from_rgb(225, 240, 255),
+                    }
                 } else {
                     base_color
                 };
 
                 painter.rect_filled(*r, NODE_CORNER_RADIUS, fill);
-                painter.rect_stroke(*r, NODE_CORNER_RADIUS, egui::Stroke::new(1.0, egui::Color32::GRAY), egui::epaint::StrokeKind::Outside);
+                
+                // 複数選択されているノードには太い枠線
+                let stroke_width = if is_multi_selected { 2.0 } else { 1.0 };
+                let stroke_color = if is_sel {
+                    egui::Color32::from_rgb(0, 100, 200) // 最後の選択は濃い青
+                } else if is_multi_selected {
+                    egui::Color32::from_rgb(100, 150, 200) // 他の選択は薄い青
+                } else {
+                    egui::Color32::GRAY
+                };
+                painter.rect_stroke(*r, NODE_CORNER_RADIUS, egui::Stroke::new(stroke_width, stroke_color), egui::epaint::StrokeKind::Outside);
 
                 // 写真表示モードの場合、写真を表示
                 if let Some(person) = person {
@@ -233,6 +251,9 @@ impl NodeInteractionHandler for App {
         let mut node_hovered = false;
         let mut any_node_dragged = false;
         
+        // Ctrlキーが押されているかチェック
+        let ctrl_pressed = ui.input(|i| i.modifiers.ctrl);
+        
         for n in nodes {
             if let Some(r) = screen_rects.get(&n.id) {
                 let node_id = ui.id().with(n.id);
@@ -243,6 +264,23 @@ impl NodeInteractionHandler for App {
                 }
                 
                 if node_response.drag_started() {
+                    // 複数選択されたノードのドラッグ開始
+                    if !self.person_editor.selected_ids.is_empty() && 
+                       self.person_editor.selected_ids.contains(&n.id) {
+                        // 複数選択されたノードすべての初期位置を記録
+                        self.canvas.multi_drag_starts.clear();
+                        for id in &self.person_editor.selected_ids {
+                            if let Some(person) = self.tree.persons.get(id) {
+                                self.canvas.multi_drag_starts.insert(*id, person.position);
+                            }
+                        }
+                    } else {
+                        // 単一ノードの場合もドラッグ開始位置を記録
+                        self.canvas.multi_drag_starts.clear();
+                        if let Some(person) = self.tree.persons.get(&n.id) {
+                            self.canvas.multi_drag_starts.insert(n.id, person.position);
+                        }
+                    }
                     self.canvas.dragging_node = Some(n.id);
                     self.canvas.node_drag_start = pointer_pos;
                 }
@@ -252,46 +290,106 @@ impl NodeInteractionHandler for App {
                     if let (Some(pos), Some(start)) = (pointer_pos, self.canvas.node_drag_start) {
                         let delta = (pos - start) / self.canvas.zoom;
                         
-                        if let Some(person) = self.tree.persons.get_mut(&n.id) {
-                            let current_pos = person.position;
-                            let new_x = current_pos.0 + delta.x;
-                            let new_y = current_pos.1 + delta.y;
-                            
-                            person.position = (new_x, new_y);
+                        // ドラッグ開始時の位置からの累積移動量を使用
+                        for (id, start_pos) in &self.canvas.multi_drag_starts {
+                            if let Some(person) = self.tree.persons.get_mut(id) {
+                                let new_x = start_pos.0 + delta.x;
+                                let new_y = start_pos.1 + delta.y;
+                                person.position = (new_x, new_y);
+                            }
                         }
-                        self.canvas.node_drag_start = pointer_pos;
                     }
                 }
                 
                 if node_response.drag_stopped() && self.canvas.dragging_node == Some(n.id) {
                     if self.canvas.show_grid {
-                        if let Some(person) = self.tree.persons.get_mut(&n.id) {
-                            let (x, y) = person.position;
-                            let relative_pos = egui::pos2(x - origin.x, y - origin.y);
-                            let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.canvas.grid_size);
-                            
-                            let snapped_x = origin.x + snapped_rel.x;
-                            let snapped_y = origin.y + snapped_rel.y;
-                            
-                            person.position = (snapped_x, snapped_y);
+                        // 複数選択されている場合は、すべてのノードをグリッドにスナップ
+                        if !self.canvas.multi_drag_starts.is_empty() {
+                            for id in self.canvas.multi_drag_starts.keys() {
+                                if let Some(person) = self.tree.persons.get_mut(id) {
+                                    let (x, y) = person.position;
+                                    let relative_pos = egui::pos2(x - origin.x, y - origin.y);
+                                    let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.canvas.grid_size);
+                                    
+                                    let snapped_x = origin.x + snapped_rel.x;
+                                    let snapped_y = origin.y + snapped_rel.y;
+                                    
+                                    person.position = (snapped_x, snapped_y);
+                                }
+                            }
+                        } else {
+                            if let Some(person) = self.tree.persons.get_mut(&n.id) {
+                                let (x, y) = person.position;
+                                let relative_pos = egui::pos2(x - origin.x, y - origin.y);
+                                let snapped_rel = LayoutEngine::snap_to_grid(relative_pos, self.canvas.grid_size);
+                                
+                                let snapped_x = origin.x + snapped_rel.x;
+                                let snapped_y = origin.y + snapped_rel.y;
+                                
+                                person.position = (snapped_x, snapped_y);
+                            }
                         }
                     }
                     self.canvas.dragging_node = None;
                     self.canvas.node_drag_start = None;
+                    self.canvas.multi_drag_starts.clear();
                 }
                 
                 if node_response.clicked() {
-                    self.person_editor.selected = Some(n.id);
-                    if let Some(person) = self.tree.persons.get(&n.id) {
-                        self.person_editor.new_name = person.name.clone();
-                        self.person_editor.new_gender = person.gender;
-                        self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
-                        self.person_editor.new_memo = person.memo.clone();
-                        self.person_editor.new_deceased = person.deceased;
-                        self.person_editor.new_death = person.death.clone().unwrap_or_default();
-                        self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
-                        self.person_editor.new_display_mode = person.display_mode;
-                        self.person_editor.new_photo_scale = person.photo_scale;
+                    // Ctrlキーが押されている場合は複数選択
+                    if ctrl_pressed {
+                        if let Some(idx) = self.person_editor.selected_ids.iter().position(|id| *id == n.id) {
+                            // 既に選択されている場合は選択解除
+                            self.person_editor.selected_ids.remove(idx);
+                            // 最後の選択を更新
+                            if let Some(last_id) = self.person_editor.selected_ids.last() {
+                                self.person_editor.selected = Some(*last_id);
+                                if let Some(person) = self.tree.persons.get(last_id) {
+                                    self.person_editor.new_name = person.name.clone();
+                                    self.person_editor.new_gender = person.gender;
+                                    self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+                                    self.person_editor.new_memo = person.memo.clone();
+                                    self.person_editor.new_deceased = person.deceased;
+                                    self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                                    self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
+                                    self.person_editor.new_display_mode = person.display_mode;
+                                    self.person_editor.new_photo_scale = person.photo_scale;
+                                }
+                            } else {
+                                self.person_editor.selected = None;
+                            }
+                        } else {
+                            // 新規選択を追加
+                            self.person_editor.selected_ids.push(n.id);
+                            self.person_editor.selected = Some(n.id);
+                            if let Some(person) = self.tree.persons.get(&n.id) {
+                                self.person_editor.new_name = person.name.clone();
+                                self.person_editor.new_gender = person.gender;
+                                self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+                                self.person_editor.new_memo = person.memo.clone();
+                                self.person_editor.new_deceased = person.deceased;
+                                self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                                self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
+                                self.person_editor.new_display_mode = person.display_mode;
+                                self.person_editor.new_photo_scale = person.photo_scale;
+                            }
+                        }
+                    } else {
+                        // Ctrlキーが押されていない場合は単一選択
+                        self.person_editor.selected_ids.clear();
+                        self.person_editor.selected_ids.push(n.id);
+                        self.person_editor.selected = Some(n.id);
+                        if let Some(person) = self.tree.persons.get(&n.id) {
+                            self.person_editor.new_name = person.name.clone();
+                            self.person_editor.new_gender = person.gender;
+                            self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+                            self.person_editor.new_memo = person.memo.clone();
+                            self.person_editor.new_deceased = person.deceased;
+                            self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                            self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
+                            self.person_editor.new_display_mode = person.display_mode;
+                            self.person_editor.new_photo_scale = person.photo_scale;
+                        }
                     }
                 }
             }

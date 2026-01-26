@@ -1,0 +1,22 @@
+{
+  "persons": {
+    "5f774713-e124-4724-9ecd-0a9f62975216": {
+      "id": "5f774713-e124-4724-9ecd-0a9f62975216",
+      "name": "天之御中主神",
+      "gender": "Unknown",
+      "birth": null,
+      "memo": "至高の神。\n日本神話における創造神のことであり、神話時代の系譜の中で最初に現れる神で、天地開闢の章に登場する。",
+      "position": [
+        300.0,
+        50.0
+      ],
+      "deceased": false,
+      "death": null
+    }
+  },
+  "edges": [],
+  "spouses": [],
+  "families": [],
+  "events": {},
+  "event_relations": []
+}

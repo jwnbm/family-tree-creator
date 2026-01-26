@@ -7,6 +7,8 @@ use uuid::Uuid;
 #[derive(Default)]
 pub struct PersonEditorState {
     pub selected: Option<PersonId>,
+    /// 複数選択されたノードのID（選択順序を保持）
+    pub selected_ids: Vec<PersonId>,
     pub new_name: String,
     pub new_gender: Gender,
     pub new_birth: String,
@@ -115,6 +117,8 @@ pub struct CanvasState {
     // ノードドラッグ
     pub dragging_node: Option<PersonId>,
     pub node_drag_start: Option<egui::Pos2>,
+    /// 複数選択されたノードのドラッグ開始位置（各ノードごと）
+    pub multi_drag_starts: std::collections::HashMap<PersonId, (f32, f32)>,
     
     // イベントノードドラッグ
     pub dragging_event: Option<EventId>,
@@ -138,6 +142,7 @@ impl Default for CanvasState {
             last_pointer_pos: None,
             dragging_node: None,
             node_drag_start: None,
+            multi_drag_starts: std::collections::HashMap::new(),
             dragging_event: None,
             event_drag_start: None,
             show_grid: true,
