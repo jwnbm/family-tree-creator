@@ -269,16 +269,27 @@ impl NodeInteractionHandler for App {
                        self.person_editor.selected_ids.contains(&n.id) {
                         // 複数選択されたノードすべての初期位置を記録
                         self.canvas.multi_drag_starts.clear();
+                        let mut names = Vec::new();
                         for id in &self.person_editor.selected_ids {
                             if let Some(person) = self.tree.persons.get(id) {
                                 self.canvas.multi_drag_starts.insert(*id, person.position);
+                                names.push(person.name.clone());
                             }
                         }
+                        self.log.add(format!("{}個のノードのドラッグを開始: {}", 
+                            names.len(), 
+                            names.join(", ")
+                        ));
                     } else {
                         // 単一ノードの場合もドラッグ開始位置を記録
                         self.canvas.multi_drag_starts.clear();
                         if let Some(person) = self.tree.persons.get(&n.id) {
                             self.canvas.multi_drag_starts.insert(n.id, person.position);
+                            self.log.add(format!("ノードのドラッグを開始: {} (x:{:.0}, y:{:.0})",
+                                person.name,
+                                person.position.0,
+                                person.position.1
+                            ));
                         }
                     }
                     self.canvas.dragging_node = Some(n.id);
@@ -302,6 +313,37 @@ impl NodeInteractionHandler for App {
                 }
                 
                 if node_response.drag_stopped() && self.canvas.dragging_node == Some(n.id) {
+                    // ドラッグ完了のログを記録
+                    if self.canvas.multi_drag_starts.len() > 1 {
+                        let mut moved_info = Vec::new();
+                        for id in self.canvas.multi_drag_starts.keys() {
+                            if let Some(person) = self.tree.persons.get(id) {
+                                moved_info.push(format!("{} (x:{:.0}, y:{:.0})", 
+                                    person.name,
+                                    person.position.0,
+                                    person.position.1
+                                ));
+                            }
+                        }
+                        self.log.add(format!("{}個のノードを移動完了: {}", 
+                            moved_info.len(),
+                            moved_info.join(", ")
+                        ));
+                    } else if let Some(person) = self.tree.persons.get(&n.id) {
+                        let start_pos = self.canvas.multi_drag_starts.get(&n.id);
+                        if let Some(start) = start_pos {
+                            let delta_x = person.position.0 - start.0;
+                            let delta_y = person.position.1 - start.1;
+                            let distance = (delta_x * delta_x + delta_y * delta_y).sqrt();
+                            self.log.add(format!("ノードを移動完了: {} → (x:{:.0}, y:{:.0}) 移動距離:{:.0}px",
+                                person.name,
+                                person.position.0,
+                                person.position.1,
+                                distance
+                            ));
+                        }
+                    }
+                    
                     if self.canvas.show_grid {
                         // 複数選択されている場合は、すべてのノードをグリッドにスナップ
                         if !self.canvas.multi_drag_starts.is_empty() {
@@ -341,6 +383,8 @@ impl NodeInteractionHandler for App {
                         if let Some(idx) = self.person_editor.selected_ids.iter().position(|id| *id == n.id) {
                             // 既に選択されている場合は選択解除
                             self.person_editor.selected_ids.remove(idx);
+                            let person_name = self.get_person_name(&n.id);
+                            self.log.add(format!("選択を解除: {}", person_name));
                             // 最後の選択を更新
                             if let Some(last_id) = self.person_editor.selected_ids.last() {
                                 self.person_editor.selected = Some(*last_id);
@@ -362,6 +406,8 @@ impl NodeInteractionHandler for App {
                             // 新規選択を追加
                             self.person_editor.selected_ids.push(n.id);
                             self.person_editor.selected = Some(n.id);
+                            let person_name = self.get_person_name(&n.id);
+                            self.log.add(format!("追加選択: {} (合計{}個)", person_name, self.person_editor.selected_ids.len()));
                             if let Some(person) = self.tree.persons.get(&n.id) {
                                 self.person_editor.new_name = person.name.clone();
                                 self.person_editor.new_gender = person.gender;
@@ -379,6 +425,8 @@ impl NodeInteractionHandler for App {
                         self.person_editor.selected_ids.clear();
                         self.person_editor.selected_ids.push(n.id);
                         self.person_editor.selected = Some(n.id);
+                        let person_name = self.get_person_name(&n.id);
+                        self.log.add(format!("ノードを選択: {}", person_name));
                         if let Some(person) = self.tree.persons.get(&n.id) {
                             self.person_editor.new_name = person.name.clone();
                             self.person_editor.new_gender = person.gender;
@@ -700,6 +748,7 @@ impl FamilyBoxRenderer for App {
                     let lang = self.ui.language;
                     let t = |key: &str| Texts::get(key, lang);
                     self.file.status = format!("{} {}", t("selected_family"), family.name);
+                    self.log.add(format!("家族を選択: {}", family.name));
                 }
             }
         }
@@ -803,6 +852,12 @@ impl EventNodeRenderer for App {
             if interact_response.drag_started() {
                 self.canvas.dragging_event = Some(event_id);
                 self.canvas.event_drag_start = pointer_pos;
+                let event_name = if name.is_empty() {
+                    Texts::get("new_event", lang).to_string()
+                } else {
+                    name.clone()
+                };
+                self.log.add(format!("イベントノードをドラッグ開始: {}", event_name));
             }
 
             if interact_response.dragged() && self.canvas.dragging_event == Some(event_id) {
@@ -820,6 +875,13 @@ impl EventNodeRenderer for App {
             }
 
             if interact_response.drag_stopped() && self.canvas.dragging_event == Some(event_id) {
+                let event_name = if name.is_empty() {
+                    Texts::get("new_event", lang).to_string()
+                } else {
+                    name.clone()
+                };
+                self.log.add(format!("イベントノードを移動しました: {}", event_name));
+                
                 if self.canvas.show_grid {
                     if let Some(event) = self.tree.events.get_mut(&event_id) {
                         let (x, y) = event.position;
@@ -834,12 +896,19 @@ impl EventNodeRenderer for App {
 
             if interact_response.clicked() {
                 self.event_editor.selected = Some(event_id);
-                self.event_editor.new_event_name = name;
+                self.event_editor.new_event_name = name.clone();
                 self.event_editor.new_event_date = date.unwrap_or_default();
                 self.event_editor.new_event_description = description;
                 let (r, g, b) = color;
                 self.event_editor.new_event_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
                 self.ui.side_tab = SideTab::Events;
+                
+                let event_name = if name.is_empty() {
+                    Texts::get("new_event", lang).to_string()
+                } else {
+                    name
+                };
+                self.log.add(format!("イベントを選択: {}", event_name));
             }
         }
         

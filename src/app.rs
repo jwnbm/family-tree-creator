@@ -6,7 +6,7 @@ use crate::core::i18n::Texts;
 use crate::ui::{
     FileMenuRenderer, HelpMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, EventsTabRenderer, SettingsTabRenderer, CanvasRenderer,
     PersonEditorState, RelationEditorState, FamilyEditorState, EventEditorState,
-    CanvasState, FileState, UiState, SideTab
+    CanvasState, FileState, UiState, SideTab, LogState
 };
 
 // 定数
@@ -25,11 +25,12 @@ pub struct App {
     pub canvas: CanvasState,
     pub file: FileState,
     pub ui: UiState,
+    pub log: LogState,
 }
 
 impl Default for App {
     fn default() -> Self {
-        Self {
+        let mut app = Self {
             tree: FamilyTree::default(),
             person_editor: PersonEditorState::default(),
             relation_editor: RelationEditorState::new(),
@@ -38,7 +39,10 @@ impl Default for App {
             canvas: CanvasState::default(),
             file: FileState::new(),
             ui: UiState::default(),
-        }
+            log: LogState::default(),
+        };
+        app.log.add("アプリケーションを起動しました".to_string());
+        app
     }
 }
 
@@ -48,10 +52,19 @@ impl App {
         let t = |key: &str| Texts::get(key, lang);
         match serde_json::to_string_pretty(&self.tree) {
             Ok(s) => match fs::write(&self.file.file_path, s) {
-                Ok(_) => self.file.status = format!("{}: {}", t("saved"), self.file.file_path),
-                Err(e) => self.file.status = format!("Save error: {e}"),
+                Ok(_) => {
+                    self.file.status = format!("{}: {}", t("saved"), self.file.file_path);
+                    self.log.add(format!("ファイルを保存しました: {}", self.file.file_path));
+                },
+                Err(e) => {
+                    self.file.status = format!("Save error: {e}");
+                    self.log.add(format!("保存エラー: {e}"));
+                },
             },
-            Err(e) => self.file.status = format!("Serialize error: {e}"),
+            Err(e) => {
+                self.file.status = format!("Serialize error: {e}");
+                self.log.add(format!("シリアライズエラー: {e}"));
+            },
         }
     }
 
@@ -64,10 +77,17 @@ impl App {
                     self.tree = tree;
                     self.person_editor.selected = None;
                     self.file.status = format!("{}: {}", t("loaded"), self.file.file_path);
+                    self.log.add(format!("ファイルを読み込みました: {}", self.file.file_path));
                 }
-                Err(e) => self.file.status = format!("Parse error: {e}"),
+                Err(e) => {
+                    self.file.status = format!("Parse error: {e}");
+                    self.log.add(format!("パースエラー: {e}"));
+                },
             },
-            Err(e) => self.file.status = format!("Read error: {e}"),
+            Err(e) => {
+                self.file.status = format!("Read error: {e}");
+                self.log.add(format!("読み込みエラー: {e}"));
+            },
         }
     }
 
@@ -123,8 +143,38 @@ impl eframe::App for App {
             });
         });
 
-        // キャンバス
-        self.render_canvas(ctx);
+        // ログパネル（下部）
+        egui::TopBottomPanel::bottom("log_panel")
+            .resizable(true)
+            .default_height(120.0)
+            .min_height(60.0)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("📋 ログ");
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("クリア").clicked() {
+                            self.log.clear();
+                        }
+                    });
+                });
+                ui.separator();
+                
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        for msg in &self.log.messages {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new(&msg.timestamp)
+                                        .color(egui::Color32::GRAY)
+                                        .monospace()
+                                );
+                                ui.label(&msg.message);
+                            });
+                        }
+                    });
+            });
 
         // ステータスバー
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
@@ -136,5 +186,8 @@ impl eframe::App for App {
                 }
             });
         });
+        
+        // キャンバス（最後に描画することで他のパネルの後ろに配置）
+        self.render_canvas(ctx);
     }
 }

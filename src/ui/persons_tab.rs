@@ -45,6 +45,7 @@ impl PersonsTabRenderer for App {
                 self.person_editor.new_photo_scale = person.photo_scale;
             }
             self.file.status = t("new_person_added");
+            self.log.add(format!("新しい人物を追加しました: {}", t("new_person")));
         }
 
         ui.separator();
@@ -151,10 +152,13 @@ impl PersonsTabRenderer for App {
                 }
                 if ui.button(t("delete")).clicked() {
                     if let Some(sel) = self.person_editor.selected {
+                        let person_name = self.get_person_name(&sel);
                         self.tree.remove_person(sel);
                         self.person_editor.selected = None;
+                        self.person_editor.selected_ids.clear();
                         self.clear_person_form();
-                        self.file.status = t("person_deleted");
+                        self.file.status = t("deleted");
+                        self.log.add(format!("人物を削除しました: {}", person_name));
                     }
                 }
             }

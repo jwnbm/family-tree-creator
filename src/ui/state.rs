@@ -3,6 +3,49 @@ use crate::core::tree::{Gender, PersonId, EventId, EventRelationType, PersonDisp
 use crate::core::i18n::Language;
 use uuid::Uuid;
 
+/// ログメッセージ
+#[derive(Clone)]
+pub struct LogMessage {
+    pub message: String,
+    pub timestamp: String,
+}
+
+/// ログ状態
+pub struct LogState {
+    pub messages: Vec<LogMessage>,
+    pub max_messages: usize,
+}
+
+impl Default for LogState {
+    fn default() -> Self {
+        Self {
+            messages: Vec::new(),
+            max_messages: 100,
+        }
+    }
+}
+
+impl LogState {
+    pub fn add(&mut self, message: String) {
+        let now = chrono::Local::now();
+        let timestamp = now.format("%H:%M:%S").to_string();
+        
+        self.messages.push(LogMessage {
+            message,
+            timestamp,
+        });
+        
+        // 最大数を超えた場合は古いものから削除
+        if self.messages.len() > self.max_messages {
+            self.messages.remove(0);
+        }
+    }
+    
+    pub fn clear(&mut self) {
+        self.messages.clear();
+    }
+}
+
 /// 人物編集フォームの状態
 #[derive(Default)]
 pub struct PersonEditorState {

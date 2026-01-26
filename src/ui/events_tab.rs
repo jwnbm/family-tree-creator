@@ -55,14 +55,16 @@ impl EventsTabRenderer for App {
                         (self.event_editor.new_event_color[2] * 255.0) as u8,
                     );
                     
-                    let event_id = self.tree.add_event(name, date, description, visible_left_top, color);
+                    let event_id = self.tree.add_event(name.clone(), date, description, visible_left_top, color);
                     self.event_editor.selected = Some(event_id);
                     self.file.status = t("new_event_added");
+                    self.log.add(format!("新しいイベントを追加しました: {}", if name.is_empty() { t("new_event") } else { name }));
                 }
             } else {
                 if ui.button(t("update")).clicked() {
                     if let Some(event_id) = self.event_editor.selected {
                         if let Some(event) = self.tree.events.get_mut(&event_id) {
+                            let old_name = event.name.clone();
                             event.name = self.event_editor.new_event_name.clone();
                             event.date = App::parse_optional_field(&self.event_editor.new_event_date);
                             event.description = self.event_editor.new_event_description.clone();
@@ -72,16 +74,21 @@ impl EventsTabRenderer for App {
                                 (self.event_editor.new_event_color[2] * 255.0) as u8,
                             );
                             self.file.status = t("event_updated");
+                            self.log.add(format!("イベントを更新しました: {} -> {}", old_name, event.name));
                         }
                     }
                 }
                 
                 if ui.button(t("delete")).clicked() {
                     if let Some(event_id) = self.event_editor.selected {
+                        let event_name = self.tree.events.get(&event_id)
+                            .map(|e| e.name.clone())
+                            .unwrap_or_else(|| t("unknown"));
                         self.tree.remove_event(event_id);
                         self.event_editor.selected = None;
                         self.event_editor.clear();
                         self.file.status = t("event_deleted");
+                        self.log.add(format!("イベントを削除しました: {}", event_name));
                     }
                 }
             }
@@ -117,8 +124,12 @@ impl EventsTabRenderer for App {
                         ui.label(format!("[{}]", memo));
                     }
                     if ui.small_button(t("remove_relation")).clicked() {
+                        let event_name = self.tree.events.get(&event_id)
+                            .map(|e| e.name.clone())
+                            .unwrap_or_else(|| t("unknown"));
                         self.tree.remove_event_relation(event_id, person_id);
                         self.file.status = t("relation_removed");
+                        self.log.add(format!("イベント関係を削除しました: {} <-> {}", event_name, person_name));
                     }
                 });
             }
@@ -153,6 +164,10 @@ impl EventsTabRenderer for App {
             
             if ui.button(t("add")).clicked() {
                 if let Some(person_id) = self.event_editor.person_pick {
+                    let event_name = self.tree.events.get(&event_id)
+                        .map(|e| e.name.clone())
+                        .unwrap_or_else(|| t("unknown"));
+                    let person_name = self.get_person_name(&person_id);
                     self.tree.add_event_relation(
                         event_id,
                         person_id,
@@ -162,6 +177,7 @@ impl EventsTabRenderer for App {
                     self.event_editor.person_pick = None;
                     self.event_editor.relation_memo.clear();
                     self.file.status = t("relation_added");
+                    self.log.add(format!("イベント関係を追加しました: {} <-> {}", event_name, person_name));
                 }
             }
         }

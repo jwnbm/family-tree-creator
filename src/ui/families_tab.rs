@@ -19,6 +19,7 @@ impl FamiliesTabRenderer for App {
             self.family_editor.selected_family = Some(new_id);
             self.family_editor.new_family_name = t("new_family");
             self.file.status = t("new_family_added");
+            self.log.add(format!("新しい家族を追加しました: {}", t("new_family")));
         }
     
         ui.separator();
@@ -59,8 +60,13 @@ impl FamiliesTabRenderer for App {
                                 ui.horizontal(|ui| {
                                     ui.label(&person_name);
                                     if ui.small_button("➖").clicked() {
+                                        let family_name = self.tree.families.iter()
+                                            .find(|f| f.id == family_id)
+                                            .map(|f| f.name.clone())
+                                            .unwrap_or_default();
                                         self.tree.remove_member_from_family(family_id, *member_id);
                                         self.file.status = t("member_removed");
+                                        self.log.add(format!("家族からメンバーを削除しました: {} から {}", family_name, person_name));
                                     }
                                 });
                             }
@@ -99,9 +105,15 @@ impl FamiliesTabRenderer for App {
                 if let Some(pid) = self.family_editor.family_member_pick {
                     if ui.small_button(t("add")).clicked() {
                         if let Some(family_id) = self.family_editor.selected_family {
+                            let family_name = self.tree.families.iter()
+                                .find(|f| f.id == family_id)
+                                .map(|f| f.name.clone())
+                                .unwrap_or_default();
+                            let person_name = self.get_person_name(&pid);
                             self.tree.add_member_to_family(family_id, pid);
                             self.family_editor.family_member_pick = None;
                             self.file.status = t("member_added");
+                            self.log.add(format!("家族にメンバーを追加しました: {} に {}", family_name, person_name));
                         }
                     }
                 }
@@ -115,6 +127,7 @@ impl FamiliesTabRenderer for App {
             ui.horizontal(|ui| {
                 if ui.button(t("update")).clicked() && !self.family_editor.new_family_name.trim().is_empty() {
                     if let Some(family) = self.tree.families.iter_mut().find(|f| f.id == family_id) {
+                        let old_name = family.name.clone();
                         family.name = self.family_editor.new_family_name.clone();
                         family.color = Some((
                             (self.family_editor.new_family_color[0] * 255.0) as u8,
@@ -122,6 +135,7 @@ impl FamiliesTabRenderer for App {
                             (self.family_editor.new_family_color[2] * 255.0) as u8,
                         ));
                         self.file.status = t("family_updated");
+                        self.log.add(format!("家族を更新しました: {} -> {}", old_name, family.name));
                     }
                 }
                 
@@ -132,11 +146,16 @@ impl FamiliesTabRenderer for App {
                 }
                 
                 if ui.button(t("delete_family")).clicked() {
+                    let family_name = self.tree.families.iter()
+                        .find(|f| f.id == family_id)
+                        .map(|f| f.name.clone())
+                        .unwrap_or_default();
                     self.tree.remove_family(family_id);
                     self.family_editor.selected_family = None;
                     self.family_editor.new_family_name.clear();
                     self.family_editor.family_member_pick = None;
                     self.file.status = t("family_deleted");
+                    self.log.add(format!("家族を削除しました: {}", family_name));
                 }
             });
         }
