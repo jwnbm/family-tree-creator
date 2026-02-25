@@ -1,12 +1,14 @@
 use std::fs;
 
 use eframe::egui;
+
+use crate::core::i18n::{self as i18n, Texts};
 use crate::core::tree::{FamilyTree, PersonId};
-use crate::core::i18n::{Texts, self as i18n};
 use crate::ui::{
-    FileMenuRenderer, HelpMenuRenderer, PersonsTabRenderer, FamiliesTabRenderer, EventsTabRenderer, SettingsTabRenderer, CanvasRenderer,
-    PersonEditorState, RelationEditorState, FamilyEditorState, EventEditorState,
-    CanvasState, FileState, UiState, SideTab, LogState, LogLevel
+    CanvasRenderer, CanvasState, EventEditorState, EventsTabRenderer, FamiliesTabRenderer,
+    FamilyEditorState, FileMenuRenderer, FileState, HelpMenuRenderer, LogLevel, LogState,
+    PersonEditorState, PersonsTabRenderer, RelationEditorState, SettingsTabRenderer, SideTab,
+    UiState,
 };
 
 // 定数
@@ -54,48 +56,68 @@ impl Default for App {
 }
 
 impl App {
+    fn set_error_status_and_log(&mut self, status_prefix: &str, error: &str) {
+        let message = format!("{status_prefix}: {error}");
+        self.file.status = message.clone();
+        self.log.add_with_level(message, LogLevel::Error);
+    }
+
+    pub(crate) fn visible_canvas_left_top(&self) -> (f32, f32) {
+        if self.canvas.canvas_rect == egui::Rect::NOTHING {
+            return (100.0, 100.0);
+        }
+
+        let screen_position = self.canvas.canvas_rect.left_top() + egui::vec2(50.0, 50.0);
+        let world_position = self.canvas.canvas_origin
+            + (screen_position - self.canvas.canvas_origin - self.canvas.pan) / self.canvas.zoom;
+        (world_position.x, world_position.y)
+    }
+
     pub fn save(&mut self) {
         let lang = self.ui.language;
         let t = |key: &str| Texts::get(key, lang);
-        match serde_json::to_string_pretty(&self.tree) {
-            Ok(s) => match fs::write(&self.file.file_path, s) {
-                Ok(_) => {
-                    self.file.status = format!("{}: {}", t("saved"), self.file.file_path);
-                    self.log.add(format!("{}: {}", t("log_file_saved"), self.file.file_path));
-                },
-                Err(e) => {
-                    self.file.status = format!("Save error: {e}");
-                    self.log.add_with_level(format!("Save error: {e}"), LogLevel::Error);
-                },
-            },
-            Err(e) => {
-                self.file.status = format!("Serialize error: {e}");
-                self.log.add_with_level(format!("Serialize error: {e}"), LogLevel::Error);
-            },
+        let serialized = match serde_json::to_string_pretty(&self.tree) {
+            Ok(serialized) => serialized,
+            Err(error) => {
+                self.set_error_status_and_log("Serialize error", &error.to_string());
+                return;
+            }
+        };
+
+        if let Err(error) = fs::write(&self.file.file_path, serialized) {
+            self.set_error_status_and_log("Save error", &error.to_string());
+            return;
         }
+
+        self.file.status = format!("{}: {}", t("saved"), self.file.file_path);
+        self.log
+            .add(format!("{}: {}", t("log_file_saved"), self.file.file_path));
     }
 
     pub fn load(&mut self) {
         let lang = self.ui.language;
         let t = |key: &str| Texts::get(key, lang);
-        match fs::read_to_string(&self.file.file_path) {
-            Ok(s) => match serde_json::from_str::<FamilyTree>(&s) {
-                Ok(tree) => {
-                    self.tree = tree;
-                    self.person_editor.selected = None;
-                    self.file.status = format!("{}: {}", t("loaded"), self.file.file_path);
-                    self.log.add(format!("{}: {}", t("log_file_loaded"), self.file.file_path));
-                }
-                Err(e) => {
-                    self.file.status = format!("Parse error: {e}");
-                    self.log.add_with_level(format!("Parse error: {e}"), LogLevel::Error);
-                },
-            },
-            Err(e) => {
-                self.file.status = format!("Read error: {e}");
-                self.log.add_with_level(format!("Read error: {e}"), LogLevel::Error);
-            },
-        }
+        let serialized = match fs::read_to_string(&self.file.file_path) {
+            Ok(serialized) => serialized,
+            Err(error) => {
+                self.set_error_status_and_log("Read error", &error.to_string());
+                return;
+            }
+        };
+
+        let tree = match serde_json::from_str::<FamilyTree>(&serialized) {
+            Ok(tree) => tree,
+            Err(error) => {
+                self.set_error_status_and_log("Parse error", &error.to_string());
+                return;
+            }
+        };
+
+        self.tree = tree;
+        self.person_editor.selected = None;
+        self.file.status = format!("{}: {}", t("loaded"), self.file.file_path);
+        self.log
+            .add(format!("{}: {}", t("log_file_loaded"), self.file.file_path));
     }
 
     pub fn clear_person_form(&mut self) {

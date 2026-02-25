@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use eframe::egui;
 use crate::app::App;
-use crate::core::tree::{Gender, PersonId, PersonDisplayMode};
+use crate::core::tree::{Gender, Person, PersonDisplayMode, PersonId};
 
 const DEFAULT_RELATION_KIND: &str = "biological";
 
@@ -10,55 +12,84 @@ pub trait PersonsTabRenderer {
 
 impl PersonsTabRenderer for App {
     fn render_persons_tab(&mut self, ui: &mut egui::Ui, t: impl Fn(&str) -> String) {
+        self.render_persons_tab_header(ui, &t);
+        self.render_persons_tab_editor_section(ui, &t);
+
+        // 関係管理（編集モードの場合のみ表示）
+        if let Some(sel) = self.person_editor.selected {
+            self.render_persons_tab_relations_section(ui, sel, &t);
+        }
+
+        self.render_persons_tab_actions_section(ui, &t);
+        self.render_persons_tab_footer(ui, &t);
+    }
+}
+
+impl App {
+    fn render_persons_tab_header(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
         ui.heading(t("manage_persons"));
-        
-        // 新規人物追加ボタン
         if ui.button(t("add_new_person")).clicked() {
-            // 現在表示されているキャンバスの左上を計算
-            let visible_left_top = if self.canvas.canvas_rect != egui::Rect::NOTHING {
-                let screen_pos = self.canvas.canvas_rect.left_top() + egui::vec2(50.0, 50.0);
-                let world_pos = self.canvas.canvas_origin + (screen_pos - self.canvas.canvas_origin - self.canvas.pan) / self.canvas.zoom;
-                (world_pos.x, world_pos.y)
-            } else {
-                (100.0, 100.0)
-            };
-            
-            let id = self.tree.add_person(
-                t("new_person"),
-                Gender::Unknown,
-                None,
-                String::new(),
-                false,
-                None,
-                visible_left_top,
-            );
-            self.person_editor.selected = Some(id);
-            if let Some(person) = self.tree.persons.get(&id) {
-                self.person_editor.new_name = person.name.clone();
-                self.person_editor.new_gender = person.gender;
-                self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
-                self.person_editor.new_memo = person.memo.clone();
-                self.person_editor.new_deceased = person.deceased;
-                self.person_editor.new_death = person.death.clone().unwrap_or_default();
-                self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
-                self.person_editor.new_display_mode = person.display_mode;
-                self.person_editor.new_photo_scale = person.photo_scale;
-            }
-            self.file.status = t("new_person_added");
-            self.log.add(format!("{}: {}", t("log_person_added"), t("new_person")));
+            self.add_new_person(t);
         }
-
         ui.separator();
+    }
 
-        // 人物エディタ
-        if self.person_editor.selected.is_some() {
-            if let Some(person) = self.person_editor.selected.and_then(|id| self.tree.persons.get(&id)) {
-                ui.heading(format!("{} {}", t("edit"), person.name));
-            }
-        } else {
-            ui.heading(t("person_editor"));
+    fn add_new_person(&mut self, t: &impl Fn(&str) -> String) {
+        let visible_left_top = self.visible_canvas_left_top();
+        let person_id = self.tree.add_person(
+            t("new_person"),
+            Gender::Unknown,
+            None,
+            String::new(),
+            false,
+            None,
+            visible_left_top,
+        );
+        self.person_editor.selected = Some(person_id);
+        self.load_selected_person_into_form(person_id);
+        self.file.status = t("new_person_added");
+        self.log
+            .add(format!("{}: {}", t("log_person_added"), t("new_person")));
+    }
+
+    fn load_selected_person_into_form(&mut self, person_id: PersonId) {
+        if let Some(person) = self.tree.persons.get(&person_id) {
+            self.person_editor.new_name = person.name.clone();
+            self.person_editor.new_gender = person.gender;
+            self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+            self.person_editor.new_memo = person.memo.clone();
+            self.person_editor.new_deceased = person.deceased;
+            self.person_editor.new_death = person.death.clone().unwrap_or_default();
+            self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
+            self.person_editor.new_display_mode = person.display_mode;
+            self.person_editor.new_photo_scale = person.photo_scale;
         }
+    }
 
+    fn render_persons_tab_editor_section(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
+        self.render_person_editor_heading(ui, t);
+        self.render_person_basic_fields(ui, t);
+        self.render_person_photo_fields(ui, t);
+        self.render_person_display_fields(ui, t);
+    }
+
+    fn render_persons_tab_actions_section(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
+        self.render_person_action_buttons(ui, t);
+    }
+
+    fn render_person_editor_heading(&self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
+        if let Some(person) = self
+            .person_editor
+            .selected
+            .and_then(|id| self.tree.persons.get(&id))
+        {
+            ui.heading(format!("{} {}", t("edit"), person.name));
+            return;
+        }
+        ui.heading(t("person_editor"));
+    }
+
+    fn render_person_basic_fields(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
         ui.horizontal(|ui| {
             ui.label(t("name"));
             ui.text_edit_singleline(&mut self.person_editor.new_name);
@@ -66,8 +97,16 @@ impl PersonsTabRenderer for App {
         ui.horizontal(|ui| {
             ui.label(t("gender"));
             ui.radio_value(&mut self.person_editor.new_gender, Gender::Male, t("male"));
-            ui.radio_value(&mut self.person_editor.new_gender, Gender::Female, t("female"));
-            ui.radio_value(&mut self.person_editor.new_gender, Gender::Unknown, t("unknown"));
+            ui.radio_value(
+                &mut self.person_editor.new_gender,
+                Gender::Female,
+                t("female"),
+            );
+            ui.radio_value(
+                &mut self.person_editor.new_gender,
+                Gender::Unknown,
+                t("unknown"),
+            );
         });
         ui.horizontal(|ui| {
             ui.label(t("birth"));
@@ -82,8 +121,9 @@ impl PersonsTabRenderer for App {
         }
         ui.label(t("memo"));
         ui.text_edit_multiline(&mut self.person_editor.new_memo);
-        
-        // 写真パス
+    }
+
+    fn render_person_photo_fields(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
         ui.horizontal(|ui| {
             ui.label(t("photo_path"));
             ui.text_edit_singleline(&mut self.person_editor.new_photo_path);
@@ -95,88 +135,222 @@ impl PersonsTabRenderer for App {
                     self.person_editor.new_photo_path = path.display().to_string();
                 }
             }
-            if !self.person_editor.new_photo_path.is_empty() {
-                if ui.button(t("clear_photo")).clicked() {
-                    self.person_editor.new_photo_path.clear();
-                }
+            if !self.person_editor.new_photo_path.is_empty() && ui.button(t("clear_photo")).clicked() {
+                self.person_editor.new_photo_path.clear();
             }
         });
-        
-        // 表示モード
+    }
+
+    fn render_person_display_fields(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
         ui.horizontal(|ui| {
             ui.label(t("display_mode"));
-            ui.radio_value(&mut self.person_editor.new_display_mode, PersonDisplayMode::NameOnly, t("name_only"));
-            ui.radio_value(&mut self.person_editor.new_display_mode, PersonDisplayMode::NameAndPhoto, t("name_and_photo"));
+            ui.radio_value(
+                &mut self.person_editor.new_display_mode,
+                PersonDisplayMode::NameOnly,
+                t("name_only"),
+            );
+            ui.radio_value(
+                &mut self.person_editor.new_display_mode,
+                PersonDisplayMode::NameAndPhoto,
+                t("name_and_photo"),
+            );
         });
-        
-        // 写真倍率（写真表示モードの場合のみ）
+
         if self.person_editor.new_display_mode == PersonDisplayMode::NameAndPhoto {
             ui.horizontal(|ui| {
                 ui.label(t("photo_scale"));
                 ui.add(egui::Slider::new(&mut self.person_editor.new_photo_scale, 0.1..=3.0).text("×"));
             });
         }
+    }
 
-        // 更新・キャンセル・削除ボタン
+    fn render_person_action_buttons(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
         ui.horizontal(|ui| {
-            if self.person_editor.selected.is_some() {
-                if ui.button(t("update")).clicked() {
-                    if let Some(sel) = self.person_editor.selected {
-                        if let Some(p) = self.tree.persons.get_mut(&sel) {
-                            if !self.person_editor.new_name.trim().is_empty() {
-                                p.name = self.person_editor.new_name.trim().to_string();
-                                p.gender = self.person_editor.new_gender;
-                                p.birth = App::parse_optional_field(&self.person_editor.new_birth);
-                                p.memo = self.person_editor.new_memo.clone();
-                                p.deceased = self.person_editor.new_deceased;
-                                p.death = self.person_editor.new_deceased
-                                    .then(|| App::parse_optional_field(&self.person_editor.new_death))
-                                    .flatten();
-                                p.photo_path = if self.person_editor.new_photo_path.trim().is_empty() {
-                                    None
-                                } else {
-                                    Some(self.person_editor.new_photo_path.trim().to_string())
-                                };
-                                p.display_mode = self.person_editor.new_display_mode;
-                                p.photo_scale = self.person_editor.new_photo_scale.clamp(0.1, 3.0);
-                                self.file.status = t("person_updated");
-                            } else {
-                                self.file.status = t("name_required");
-                            }
-                        }
-                    }
-                }
-                if ui.button(t("cancel")).clicked() {
-                    self.person_editor.selected = None;
-                    self.clear_person_form();
-                }
-                if ui.button(t("delete")).clicked() {
-                    if let Some(sel) = self.person_editor.selected {
-                        let person_name = self.get_person_name(&sel);
-                        self.tree.remove_person(sel);
-                        self.person_editor.selected = None;
-                        self.person_editor.selected_ids.clear();
-                        self.clear_person_form();
-                        self.file.status = t("deleted");
-                        self.log.add(format!("{}: {}", t("log_person_deleted"), person_name));
-                    }
-                }
+            if self.person_editor.selected.is_none() {
+                return;
+            }
+            if ui.button(t("update")).clicked() {
+                self.update_selected_person(t);
+            }
+            if ui.button(t("cancel")).clicked() {
+                self.cancel_person_edit();
+            }
+            if ui.button(t("delete")).clicked() {
+                self.delete_selected_person(t);
             }
         });
+    }
 
-        // 関係管理（編集モードの場合のみ表示）
-        if let Some(sel) = self.person_editor.selected {
-            self.render_relations_section(ui, sel, &t);
+    fn update_selected_person(&mut self, t: &impl Fn(&str) -> String) {
+        if self.person_editor.new_name.trim().is_empty() {
+            self.file.status = t("name_required");
+            return;
         }
 
+        let Some(person_id) = self.person_editor.selected else {
+            return;
+        };
+
+        if let Some(person) = self.tree.persons.get_mut(&person_id) {
+            person.name = self.person_editor.new_name.trim().to_string();
+            person.gender = self.person_editor.new_gender;
+            person.birth = App::parse_optional_field(&self.person_editor.new_birth);
+            person.memo = self.person_editor.new_memo.clone();
+            person.deceased = self.person_editor.new_deceased;
+            person.death = self
+                .person_editor
+                .new_deceased
+                .then(|| App::parse_optional_field(&self.person_editor.new_death))
+                .flatten();
+            person.photo_path = if self.person_editor.new_photo_path.trim().is_empty() {
+                None
+            } else {
+                Some(self.person_editor.new_photo_path.trim().to_string())
+            };
+            person.display_mode = self.person_editor.new_display_mode;
+            person.photo_scale = self.person_editor.new_photo_scale.clamp(0.1, 3.0);
+            self.file.status = t("person_updated");
+        }
+    }
+
+    fn cancel_person_edit(&mut self) {
+        self.person_editor.selected = None;
+        self.clear_person_form();
+    }
+
+    fn delete_selected_person(&mut self, t: &impl Fn(&str) -> String) {
+        let Some(person_id) = self.person_editor.selected else {
+            return;
+        };
+
+        let person_name = self.get_person_name(&person_id);
+        self.tree.remove_person(person_id);
+        self.person_editor.selected = None;
+        self.person_editor.selected_ids.clear();
+        self.clear_person_form();
+        self.file.status = t("deleted");
+        self.log
+            .add(format!("{}: {}", t("log_person_deleted"), person_name));
+    }
+
+    fn render_persons_tab_footer(&self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
         ui.separator();
         ui.label(t("view_controls"));
         ui.label(t("drag_nodes"));
     }
-}
 
-impl App {
-    fn render_relations_section(&mut self, ui: &mut egui::Ui, sel: PersonId, t: &impl Fn(&str) -> String) {
+    fn selected_person_name_or_select(
+        persons: &HashMap<PersonId, Person>,
+        selected: Option<PersonId>,
+        t: &impl Fn(&str) -> String,
+    ) -> String {
+        selected
+            .and_then(|id| persons.get(&id).map(|person| person.name.clone()))
+            .unwrap_or_else(|| t("select"))
+    }
+
+    fn render_relation_target_picker(
+        ui: &mut egui::Ui,
+        persons: &HashMap<PersonId, Person>,
+        combo_id: &str,
+        selected: &mut Option<PersonId>,
+        current_person: PersonId,
+        all_ids: &[PersonId],
+        t: &impl Fn(&str) -> String,
+    ) {
+        egui::ComboBox::from_id_salt(combo_id)
+            .selected_text(Self::selected_person_name_or_select(persons, *selected, t))
+            .show_ui(ui, |ui| {
+                for id in all_ids {
+                    if *id != current_person {
+                        let person_name = persons
+                            .get(id)
+                            .map(|person| person.name.clone())
+                            .unwrap_or_else(|| "Unknown".to_string());
+                        ui.selectable_value(selected, Some(*id), person_name);
+                    }
+                }
+            });
+    }
+
+    fn relation_kind_or_default(&self) -> String {
+        let kind = self.relation_editor.relation_kind.trim();
+        if kind.is_empty() {
+            DEFAULT_RELATION_KIND.to_string()
+        } else {
+            kind.to_string()
+        }
+    }
+
+    fn start_parent_kind_edit(&mut self, parent_id: PersonId, child_id: PersonId, current_kind: &str) {
+        self.relation_editor.editing_parent_kind = Some((parent_id, child_id));
+        self.relation_editor.temp_kind = current_kind.to_string();
+    }
+
+    fn clear_parent_kind_edit(&mut self) {
+        self.relation_editor.editing_parent_kind = None;
+        self.relation_editor.temp_kind.clear();
+    }
+
+    fn remove_parent_relation(&mut self, parent_id: PersonId, child_id: PersonId, t: &impl Fn(&str) -> String) {
+        self.tree.remove_parent_child(parent_id, child_id);
+        self.file.status = t("relation_removed");
+    }
+
+    fn save_parent_relation_kind(&mut self, parent_id: PersonId, child_id: PersonId, t: &impl Fn(&str) -> String) {
+        if let Some(edge) = self
+            .tree
+            .edges
+            .iter_mut()
+            .find(|edge| edge.parent == parent_id && edge.child == child_id)
+        {
+            edge.kind = if self.relation_editor.temp_kind.trim().is_empty() {
+                "biological".to_string()
+            } else {
+                self.relation_editor.temp_kind.trim().to_string()
+            };
+            self.file.status = t("relation_kind_updated");
+        }
+        self.clear_parent_kind_edit();
+    }
+
+    fn start_spouse_memo_edit(&mut self, person1: PersonId, person2: PersonId, current_memo: &str) {
+        self.relation_editor.editing_spouse_memo = Some((person1, person2));
+        self.relation_editor.temp_spouse_memo = current_memo.to_string();
+    }
+
+    fn clear_spouse_memo_edit(&mut self) {
+        self.relation_editor.editing_spouse_memo = None;
+        self.relation_editor.temp_spouse_memo.clear();
+    }
+
+    fn remove_spouse_relation(&mut self, person1: PersonId, person2: PersonId, t: &impl Fn(&str) -> String) {
+        self.tree.remove_spouse(person1, person2);
+        self.file.status = t("relation_removed");
+    }
+
+    fn save_spouse_relation_memo(&mut self, person1: PersonId, person2: PersonId, t: &impl Fn(&str) -> String) {
+        if let Some(spouse_relation) = self
+            .tree
+            .spouses
+            .iter_mut()
+            .find(|spouse_relation| {
+                (spouse_relation.person1 == person1 && spouse_relation.person2 == person2)
+                    || (spouse_relation.person1 == person2 && spouse_relation.person2 == person1)
+            })
+        {
+            spouse_relation.memo = self.relation_editor.temp_spouse_memo.clone();
+            self.file.status = t("spouse_memo_updated");
+        }
+        self.clear_spouse_memo_edit();
+    }
+
+    fn render_persons_tab_relations_section(
+        &mut self,
+        ui: &mut egui::Ui,
+        sel: PersonId,
+        t: &impl Fn(&str) -> String,
+    ) {
         ui.separator();
         ui.label(t("relations"));
         
@@ -249,14 +423,12 @@ impl App {
                 
                 // 編集ボタン
                 if ui.small_button("✏️").on_hover_text(&t("edit_kind")).clicked() {
-                    self.relation_editor.editing_parent_kind = Some((*parent_id, sel));
-                    self.relation_editor.temp_kind = kind.clone();
+                    self.start_parent_kind_edit(*parent_id, sel, &kind);
                 }
                 
                 // 削除ボタン
                 if ui.small_button("❌").on_hover_text(&t("remove_relation")).clicked() {
-                    self.tree.remove_parent_child(*parent_id, sel);
-                    self.file.status = t("relation_removed");
+                    self.remove_parent_relation(*parent_id, sel, t);
                 }
             });
             
@@ -266,23 +438,10 @@ impl App {
                     ui.label(&t("kind"));
                     ui.text_edit_singleline(&mut self.relation_editor.temp_kind);
                     if ui.button(&t("save")).clicked() {
-                        // 親子関係の種類を更新
-                        if let Some(edge) = self.tree.edges.iter_mut().find(|e| {
-                            e.parent == *parent_id && e.child == sel
-                        }) {
-                            edge.kind = if self.relation_editor.temp_kind.trim().is_empty() {
-                                "biological".to_string()
-                            } else {
-                                self.relation_editor.temp_kind.trim().to_string()
-                            };
-                            self.file.status = t("relation_kind_updated");
-                        }
-                        self.relation_editor.editing_parent_kind = None;
-                        self.relation_editor.temp_kind.clear();
+                        self.save_parent_relation_kind(*parent_id, sel, t);
                     }
                     if ui.button(&t("cancel")).clicked() {
-                        self.relation_editor.editing_parent_kind = None;
-                        self.relation_editor.temp_kind.clear();
+                        self.clear_parent_kind_edit();
                     }
                 });
             }
@@ -326,14 +485,12 @@ impl App {
                 
                 // 編集ボタン
                 if ui.small_button("✏️").on_hover_text(&t("edit_memo")).clicked() {
-                    self.relation_editor.editing_spouse_memo = Some((sel, *spouse_id));
-                    self.relation_editor.temp_spouse_memo = spouse_memo.clone();
+                    self.start_spouse_memo_edit(sel, *spouse_id, &spouse_memo);
                 }
                 
                 // 削除ボタン
                 if ui.small_button("❌").on_hover_text(&t("remove_relation")).clicked() {
-                    self.tree.remove_spouse(sel, *spouse_id);
-                    self.file.status = t("relation_removed");
+                    self.remove_spouse_relation(sel, *spouse_id, t);
                 }
             });
             
@@ -343,20 +500,10 @@ impl App {
                     ui.label(&t("memo"));
                     ui.text_edit_singleline(&mut self.relation_editor.temp_spouse_memo);
                     if ui.button(&t("save")).clicked() {
-                        // 配偶者関係のメモを更新
-                        if let Some(spouse_rel) = self.tree.spouses.iter_mut().find(|s| {
-                            (s.person1 == sel && s.person2 == *spouse_id) ||
-                            (s.person1 == *spouse_id && s.person2 == sel)
-                        }) {
-                            spouse_rel.memo = self.relation_editor.temp_spouse_memo.clone();
-                            self.file.status = t("spouse_memo_updated");
-                        }
-                        self.relation_editor.editing_spouse_memo = None;
-                        self.relation_editor.temp_spouse_memo.clear();
+                        self.save_spouse_relation_memo(sel, *spouse_id, t);
                     }
                     if ui.button(&t("cancel")).clicked() {
-                        self.relation_editor.editing_spouse_memo = None;
-                        self.relation_editor.temp_spouse_memo.clear();
+                        self.clear_spouse_memo_edit();
                     }
                 });
             }
@@ -376,32 +523,23 @@ impl App {
         // 親を追加
         ui.horizontal(|ui| {
             ui.label(t("add_parent"));
-            egui::ComboBox::from_id_salt("add_parent")
-                .selected_text(
-                    self.relation_editor.parent_pick
-                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
-                        .unwrap_or_else(|| t("select")),
-                )
-                .show_ui(ui, |ui| {
-                    for id in all_ids {
-                        if *id != sel {
-                            let name = self.get_person_name(id);
-                            ui.selectable_value(&mut self.relation_editor.parent_pick, Some(*id), name);
-                        }
-                    }
-                });
+            Self::render_relation_target_picker(
+                ui,
+                &self.tree.persons,
+                "add_parent",
+                &mut self.relation_editor.parent_pick,
+                sel,
+                all_ids,
+                t,
+            );
         });
         ui.horizontal(|ui| {
             ui.label(t("kind"));
             ui.text_edit_singleline(&mut self.relation_editor.relation_kind);
             if ui.button(t("add")).clicked() {
                 if let Some(parent) = self.relation_editor.parent_pick {
-                    let kind = if self.relation_editor.relation_kind.trim().is_empty() {
-                        DEFAULT_RELATION_KIND
-                    } else {
-                        self.relation_editor.relation_kind.trim()
-                    };
-                    self.tree.add_parent_child(parent, sel, kind.to_string());
+                    let relation_kind = self.relation_kind_or_default();
+                    self.tree.add_parent_child(parent, sel, relation_kind);
                     self.relation_editor.parent_pick = None;
                     self.file.status = t("parent_added");
                 }
@@ -413,32 +551,23 @@ impl App {
         // 子を追加
         ui.horizontal(|ui| {
             ui.label(t("add_child"));
-            egui::ComboBox::from_id_salt("add_child")
-                .selected_text(
-                    self.relation_editor.child_pick
-                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
-                        .unwrap_or_else(|| t("select")),
-                )
-                .show_ui(ui, |ui| {
-                    for id in all_ids {
-                        if *id != sel {
-                            let name = self.get_person_name(id);
-                            ui.selectable_value(&mut self.relation_editor.child_pick, Some(*id), name);
-                        }
-                    }
-                });
+            Self::render_relation_target_picker(
+                ui,
+                &self.tree.persons,
+                "add_child",
+                &mut self.relation_editor.child_pick,
+                sel,
+                all_ids,
+                t,
+            );
         });
         ui.horizontal(|ui| {
             ui.label(t("kind"));
             ui.text_edit_singleline(&mut self.relation_editor.relation_kind);
             if ui.button(t("add")).clicked() {
                 if let Some(child) = self.relation_editor.child_pick {
-                    let kind = if self.relation_editor.relation_kind.trim().is_empty() {
-                        DEFAULT_RELATION_KIND
-                    } else {
-                        self.relation_editor.relation_kind.trim()
-                    };
-                    self.tree.add_parent_child(sel, child, kind.to_string());
+                    let relation_kind = self.relation_kind_or_default();
+                    self.tree.add_parent_child(sel, child, relation_kind);
                     self.relation_editor.child_pick = None;
                     self.file.status = t("child_added");
                 }
@@ -450,20 +579,15 @@ impl App {
         // 配偶者を追加
         ui.horizontal(|ui| {
             ui.label(t("add_spouse"));
-            egui::ComboBox::from_id_salt("add_spouse")
-                .selected_text(
-                    self.relation_editor.spouse_pick
-                        .and_then(|id| self.tree.persons.get(&id).map(|p| p.name.clone()))
-                        .unwrap_or_else(|| t("select")),
-                )
-                .show_ui(ui, |ui| {
-                    for id in all_ids {
-                        if *id != sel {
-                            let name = self.get_person_name(id);
-                            ui.selectable_value(&mut self.relation_editor.spouse_pick, Some(*id), name);
-                        }
-                    }
-                });
+            Self::render_relation_target_picker(
+                ui,
+                &self.tree.persons,
+                "add_spouse",
+                &mut self.relation_editor.spouse_pick,
+                sel,
+                all_ids,
+                t,
+            );
         });
         ui.horizontal(|ui| {
             ui.label(t("memo"));

@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::app::App;
 use crate::core::layout::LayoutEngine;
 use crate::core::tree::PersonId;
-use std::collections::HashMap;
+
 use super::{CanvasRenderer, NodeRenderer, NodeInteractionHandler, PanZoomHandler, EdgeRenderer, FamilyBoxRenderer, EventNodeRenderer, EventRelationRenderer};
 
 impl CanvasRenderer for App {
