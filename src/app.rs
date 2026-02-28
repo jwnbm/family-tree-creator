@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::application::TreeFileService;
 use crate::core::i18n::{self as i18n, Texts};
 use crate::core::tree::{FamilyTree, PersonId};
-use crate::infrastructure::JsonTreeRepository;
+use crate::infrastructure::MultiFormatTreeRepository;
 use crate::ui::{
     CanvasRenderer, CanvasState, EventEditorState, EventsTabRenderer, FamiliesTabRenderer,
     FamilyEditorState, FileMenuRenderer, FileState, HelpMenuRenderer, LogLevel, LogState,
@@ -76,7 +76,7 @@ impl App {
     pub fn save(&mut self) {
         let lang = self.ui.language;
         let t = |key: &str| Texts::get(key, lang);
-        let service = TreeFileService::new(JsonTreeRepository);
+        let service = TreeFileService::new(MultiFormatTreeRepository::new());
 
         if let Err(error) = service.save_tree(&self.file.file_path, &self.tree) {
             self.set_error_status_and_log("Save error", &error.to_string());
@@ -91,7 +91,7 @@ impl App {
     pub fn load(&mut self) {
         let lang = self.ui.language;
         let t = |key: &str| Texts::get(key, lang);
-        let service = TreeFileService::new(JsonTreeRepository);
+        let service = TreeFileService::new(MultiFormatTreeRepository::new());
         let tree = match service.load_tree(&self.file.file_path) {
             Ok(tree) => tree,
             Err(error) => {

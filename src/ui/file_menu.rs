@@ -15,7 +15,9 @@ impl FileMenuRenderer for App {
             // 新規作成
             if ui.button(t("new")).clicked() {
                 if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Family Tree", &["json", "sqlite", "db"])
                     .add_filter("JSON", &["json"])
+                    .add_filter("SQLite", &["sqlite", "db"])
                     .set_file_name("tree.json")
                     .save_file()
                 {
@@ -33,7 +35,9 @@ impl FileMenuRenderer for App {
             // 開く
             if ui.button(format!("{} (Ctrl+O)", t("open"))).clicked() {
                 if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Family Tree", &["json", "sqlite", "db"])
                     .add_filter("JSON", &["json"])
+                    .add_filter("SQLite", &["sqlite", "db"])
                     .pick_file()
                 {
                     self.file.file_path = path.display().to_string();
@@ -47,7 +51,9 @@ impl FileMenuRenderer for App {
                 // ファイルパスが存在しない場合は名前を付けて保存
                 if self.file.file_path.is_empty() || !std::path::Path::new(&self.file.file_path).exists() {
                     if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("Family Tree", &["json", "sqlite", "db"])
                         .add_filter("JSON", &["json"])
+                        .add_filter("SQLite", &["sqlite", "db"])
                         .set_file_name(if self.file.file_path.is_empty() { "tree.json" } else { &self.file.file_path })
                         .save_file()
                     {
@@ -63,7 +69,9 @@ impl FileMenuRenderer for App {
             // 名前を付けて保存
             if ui.button(t("save_as")).clicked() {
                 if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Family Tree", &["json", "sqlite", "db"])
                     .add_filter("JSON", &["json"])
+                    .add_filter("SQLite", &["sqlite", "db"])
                     .set_file_name(&self.file.file_path)
                     .save_file()
                 {
@@ -79,7 +87,9 @@ impl FileMenuRenderer for App {
             // ファイルパスが存在しない場合は名前を付けて保存
             if self.file.file_path.is_empty() || !std::path::Path::new(&self.file.file_path).exists() {
                 if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("Family Tree", &["json", "sqlite", "db"])
                     .add_filter("JSON", &["json"])
+                    .add_filter("SQLite", &["sqlite", "db"])
                     .set_file_name(if self.file.file_path.is_empty() { "tree.json" } else { &self.file.file_path })
                     .save_file()
                 {
@@ -92,7 +102,9 @@ impl FileMenuRenderer for App {
         }
         if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::O)) {
             if let Some(path) = rfd::FileDialog::new()
+                .add_filter("Family Tree", &["json", "sqlite", "db"])
                 .add_filter("JSON", &["json"])
+                .add_filter("SQLite", &["sqlite", "db"])
                 .pick_file()
             {
                 self.file.file_path = path.display().to_string();

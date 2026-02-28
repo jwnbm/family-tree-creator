@@ -12,3 +12,4 @@ uuid = { version = "1.19.0", features = ["v4", "serde"] }
 rfd = "0.15"
 image = "0.25"
 chrono = "0.4"
+rusqlite = { version = "0.32", features = ["bundled"] }
