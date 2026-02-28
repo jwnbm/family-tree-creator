@@ -161,6 +161,22 @@ Access the **Settings** tab to configure:
 - **Grid**: Toggle grid display and adjust grid size
 - **Layout**: Reset all positions to auto-calculated layout
 
+#### Settings File (TOML)
+
+- **Path**: `.family-tree-creator/settings.toml`
+- **Load timing**: Loaded automatically on app startup
+- **Save timing**: Saved automatically when values in the Settings tab change
+- **Missing file**: Defaults are used if the file does not exist
+
+The file stores the following keys:
+
+```toml
+language = "Japanese"          # Japanese | English
+show_grid = true                # true | false
+grid_size = 50.0                # 10.0 - 200.0
+node_color_theme = "Default"   # Default | HighContrast
+```
+
 ## 🏗️ Project Structure
 
 ```

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use eframe::egui;
 
-use crate::application::TreeFileService;
+use crate::application::{AppSettings, TreeFileService};
 use crate::core::i18n::{self as i18n, Texts};
 use crate::core::layout::LayoutEngine;
 use crate::core::tree::{FamilyTree, PersonId};
@@ -52,6 +52,8 @@ impl Default for App {
         if let Err(e) = app.log.set_log_file("logs") {
             eprintln!("Failed to create log directory: {}", e);
         }
+
+        app.load_settings_on_startup();
         
         let t = |key: &str| Texts::get(key, app.ui.language);
         app.log.add(t("log_app_started"));
@@ -60,6 +62,51 @@ impl Default for App {
 }
 
 impl App {
+    fn apply_settings(&mut self, settings: AppSettings) {
+        self.ui.language = settings.language;
+        self.canvas.show_grid = settings.show_grid;
+        self.canvas.grid_size = settings.grid_size.clamp(10.0, 200.0);
+        self.ui.node_color_theme = settings.node_color_theme;
+    }
+
+    fn collect_settings(&self) -> AppSettings {
+        AppSettings {
+            language: self.ui.language,
+            show_grid: self.canvas.show_grid,
+            grid_size: self.canvas.grid_size,
+            node_color_theme: self.ui.node_color_theme,
+        }
+    }
+
+    fn load_settings_on_startup(&mut self) {
+        match AppSettings::load_from_default_path() {
+            Ok(Some(settings)) => {
+                self.apply_settings(settings);
+                self.log.add("設定ファイルを読み込みました".to_string());
+            }
+            Ok(None) => {
+                self.apply_settings(AppSettings::default());
+            }
+            Err(error) => {
+                self.apply_settings(AppSettings::default());
+                self.log.add_with_level(
+                    format!("設定ファイルの読み込みに失敗しました: {error}"),
+                    LogLevel::Warning,
+                );
+            }
+        }
+    }
+
+    pub(crate) fn save_settings(&mut self) {
+        let settings = self.collect_settings();
+        if let Err(error) = settings.save_to_default_path() {
+            self.log.add_with_level(
+                format!("設定ファイルの保存に失敗しました: {error}"),
+                LogLevel::Error,
+            );
+        }
+    }
+
     fn set_error_status_and_log(&mut self, status_prefix: &str, error: &str) {
         let message = format!("{status_prefix}: {error}");
         self.file.status = message.clone();

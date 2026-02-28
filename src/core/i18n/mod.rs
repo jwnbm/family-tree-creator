@@ -5,6 +5,8 @@
 
 use std::sync::Mutex;
 
+use serde::{Deserialize, Serialize};
+
 mod ja;
 mod en;
 
@@ -26,7 +28,7 @@ pub fn take_warnings() -> Vec<String> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Language {
     Japanese,
     English,

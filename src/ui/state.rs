@@ -1,4 +1,5 @@
 use eframe::egui;
+use serde::{Deserialize, Serialize};
 use crate::core::tree::{Gender, PersonId, EventId, EventRelationType, PersonDisplayMode};
 use crate::core::i18n::Language;
 use crate::infrastructure::PhotoTextureCache;
@@ -299,7 +300,7 @@ pub enum SideTab {
     Settings,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeColorThemePreset {
     Default,
     HighContrast,
