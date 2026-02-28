@@ -2,6 +2,7 @@ use crate::app::App;
 use crate::core::tree::PersonId;
 use crate::core::layout::LayoutEngine;
 use crate::core::i18n::Texts;
+use crate::ui::SideTab;
 use super::NodeInteractionHandler;
 use std::collections::HashMap;
 
@@ -184,6 +185,7 @@ impl NodeInteractionHandler for App {
                             }
                         } else {
                             // 新規選択を追加
+                            self.ui.side_tab = SideTab::Persons;
                             self.person_editor.selected_ids.push(n.id);
                             self.person_editor.selected = Some(n.id);
                             let person_name = self.get_person_name(&n.id);
@@ -204,6 +206,7 @@ impl NodeInteractionHandler for App {
                         }
                     } else {
                         // Ctrlキーが押されていない場合は単一選択
+                        self.ui.side_tab = SideTab::Persons;
                         self.person_editor.selected_ids.clear();
                         self.person_editor.selected_ids.push(n.id);
                         self.person_editor.selected = Some(n.id);
