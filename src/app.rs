@@ -1,9 +1,9 @@
-use std::fs;
-
 use eframe::egui;
 
+use crate::application::TreeFileService;
 use crate::core::i18n::{self as i18n, Texts};
 use crate::core::tree::{FamilyTree, PersonId};
+use crate::infrastructure::JsonTreeRepository;
 use crate::ui::{
     CanvasRenderer, CanvasState, EventEditorState, EventsTabRenderer, FamiliesTabRenderer,
     FamilyEditorState, FileMenuRenderer, FileState, HelpMenuRenderer, LogLevel, LogState,
@@ -76,15 +76,9 @@ impl App {
     pub fn save(&mut self) {
         let lang = self.ui.language;
         let t = |key: &str| Texts::get(key, lang);
-        let serialized = match serde_json::to_string_pretty(&self.tree) {
-            Ok(serialized) => serialized,
-            Err(error) => {
-                self.set_error_status_and_log("Serialize error", &error.to_string());
-                return;
-            }
-        };
+        let service = TreeFileService::new(JsonTreeRepository);
 
-        if let Err(error) = fs::write(&self.file.file_path, serialized) {
+        if let Err(error) = service.save_tree(&self.file.file_path, &self.tree) {
             self.set_error_status_and_log("Save error", &error.to_string());
             return;
         }
@@ -97,18 +91,11 @@ impl App {
     pub fn load(&mut self) {
         let lang = self.ui.language;
         let t = |key: &str| Texts::get(key, lang);
-        let serialized = match fs::read_to_string(&self.file.file_path) {
-            Ok(serialized) => serialized,
-            Err(error) => {
-                self.set_error_status_and_log("Read error", &error.to_string());
-                return;
-            }
-        };
-
-        let tree = match serde_json::from_str::<FamilyTree>(&serialized) {
+        let service = TreeFileService::new(JsonTreeRepository);
+        let tree = match service.load_tree(&self.file.file_path) {
             Ok(tree) => tree,
             Err(error) => {
-                self.set_error_status_and_log("Parse error", &error.to_string());
+                self.set_error_status_and_log("Load error", &error.to_string());
                 return;
             }
         };

@@ -126,6 +126,9 @@ pub fn translate(key: &str) -> String {
         "choose_photo" => "Choose Photo...",
         "clear_photo" => "Clear Photo",
         "photo_scale" => "Photo Scale:",
+        "node_color_theme" => "Node Color Theme:",
+        "node_color_theme_default" => "Default",
+        "node_color_theme_high_contrast" => "High Contrast",
         // Log messages
         "log_app_started" => "Application started",
         "log_file_saved" => "File saved",

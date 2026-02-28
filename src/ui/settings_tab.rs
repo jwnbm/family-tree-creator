@@ -1,5 +1,6 @@
 use crate::app::App;
 use crate::core::i18n::Language;
+use crate::ui::NodeColorThemePreset;
 
 /// 設定タブのUI描画トレイト
 pub trait SettingsTabRenderer {
@@ -25,6 +26,21 @@ impl SettingsTabRenderer for App {
             ui.add(egui::DragValue::new(&mut self.canvas.grid_size)
                 .speed(1.0)
                 .range(10.0..=200.0));
+        });
+
+        ui.separator();
+        ui.label(t("node_color_theme"));
+        ui.horizontal(|ui| {
+            ui.radio_value(
+                &mut self.ui.node_color_theme,
+                NodeColorThemePreset::Default,
+                t("node_color_theme_default"),
+            );
+            ui.radio_value(
+                &mut self.ui.node_color_theme,
+                NodeColorThemePreset::HighContrast,
+                t("node_color_theme_high_contrast"),
+            );
         });
     }
 }

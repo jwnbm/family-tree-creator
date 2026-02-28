@@ -4,6 +4,7 @@ use std::collections::HashMap;
 // モジュール宣言
 mod renderer;
 mod node;
+mod node_painter;
 mod node_interaction;
 mod pan_zoom;
 mod edge;

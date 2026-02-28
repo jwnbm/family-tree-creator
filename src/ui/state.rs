@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::core::tree::{Gender, PersonId, EventId, EventRelationType, PersonDisplayMode};
 use crate::core::i18n::Language;
+use crate::infrastructure::PhotoTextureCache;
 use uuid::Uuid;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -247,6 +248,9 @@ pub struct CanvasState {
     // キャンバス情報
     pub canvas_rect: egui::Rect,
     pub canvas_origin: egui::Pos2,
+
+    // 写真テクスチャキャッシュ
+    pub photo_texture_cache: PhotoTextureCache,
 }
 
 impl Default for CanvasState {
@@ -265,6 +269,7 @@ impl Default for CanvasState {
             grid_size: 50.0,
             canvas_rect: egui::Rect::NOTHING,
             canvas_origin: egui::Pos2::ZERO,
+            photo_texture_cache: PhotoTextureCache::default(),
         }
     }
 }
@@ -294,9 +299,16 @@ pub enum SideTab {
     Settings,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NodeColorThemePreset {
+    Default,
+    HighContrast,
+}
+
 pub struct UiState {
     pub side_tab: SideTab,
     pub language: Language,
+    pub node_color_theme: NodeColorThemePreset,
     pub show_about_dialog: bool,
     pub show_license_dialog: bool,
 }
@@ -306,6 +318,7 @@ impl Default for UiState {
         Self {
             side_tab: SideTab::Persons,
             language: Language::Japanese,
+            node_color_theme: NodeColorThemePreset::Default,
             show_about_dialog: false,
             show_license_dialog: false,
         }

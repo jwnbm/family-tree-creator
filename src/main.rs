@@ -1,4 +1,6 @@
+mod application;
 mod core;
+mod infrastructure;
 mod ui;
 mod app;
 

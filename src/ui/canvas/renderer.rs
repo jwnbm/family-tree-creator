@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::app::App;
 use crate::core::layout::LayoutEngine;
 use crate::core::tree::PersonId;
+use crate::infrastructure::read_image_dimensions;
 
 use super::{CanvasRenderer, NodeRenderer, NodeInteractionHandler, PanZoomHandler, EdgeRenderer, FamilyBoxRenderer, EventNodeRenderer, EventRelationRenderer};
 
@@ -44,7 +45,24 @@ impl CanvasRenderer for App {
                 LayoutEngine::draw_grid(&painter, rect, origin, self.canvas.zoom, self.canvas.pan, self.canvas.grid_size);
             }
 
-            let nodes = LayoutEngine::compute_layout(&self.tree, origin);
+            let photo_dimensions: HashMap<PersonId, (u32, u32)> = self
+                .tree
+                .persons
+                .iter()
+                .filter_map(|(person_id, person)| {
+                    if person.display_mode != crate::core::tree::PersonDisplayMode::NameAndPhoto {
+                        return None;
+                    }
+
+                    person
+                        .photo_path
+                        .as_deref()
+                        .and_then(read_image_dimensions)
+                        .map(|dimensions| (*person_id, dimensions))
+                })
+                .collect();
+
+            let nodes = LayoutEngine::compute_layout(&self.tree, origin, &photo_dimensions);
 
             let mut screen_rects: HashMap<PersonId, egui::Rect> = HashMap::new();
             for n in &nodes {

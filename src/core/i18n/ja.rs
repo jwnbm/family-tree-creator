@@ -126,6 +126,9 @@ pub fn translate(key: &str) -> String {
         "choose_photo" => "写真を選択...",
         "clear_photo" => "写真をクリア",
         "photo_scale" => "写真倍率:",
+        "node_color_theme" => "ノード配色テーマ:",
+        "node_color_theme_default" => "標準",
+        "node_color_theme_high_contrast" => "高コントラスト",
         // Log messages
         "log_app_started" => "アプリケーションを起動しました",
         "log_file_saved" => "ファイルを保存しました",

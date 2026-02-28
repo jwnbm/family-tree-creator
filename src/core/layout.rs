@@ -1,7 +1,9 @@
 use std::collections::{HashMap, VecDeque};
+
 use eframe::egui;
-use crate::core::tree::{FamilyTree, PersonId, EventId, Event};
+
 use crate::core::i18n::{Language, Texts};
+use crate::core::tree::{Event, EventId, FamilyTree, PersonDisplayMode, PersonId};
 
 /// 画面上のノード情報
 #[derive(Debug, Clone)]
@@ -18,8 +20,41 @@ pub struct LayoutNode {
 pub struct LayoutEngine;
 
 impl LayoutEngine {
+    fn estimate_text_node_width(person_name: &str) -> f32 {
+        let char_count = person_name.chars().count();
+        (char_count as f32 * 14.0).max(100.0).min(250.0)
+    }
+
+    fn calculate_person_node_size(
+        person_name: &str,
+        display_mode: PersonDisplayMode,
+        photo_scale: f32,
+        photo_dimensions: Option<(u32, u32)>,
+    ) -> (f32, f32) {
+        let font_size = 14.0;
+        let padding_v = 16.0;
+        let base_node_h = font_size + padding_v;
+
+        match display_mode {
+            PersonDisplayMode::NameOnly => (Self::estimate_text_node_width(person_name), base_node_h),
+            PersonDisplayMode::NameAndPhoto => {
+                if let Some((image_width, image_height)) = photo_dimensions {
+                    let width = image_width as f32 * photo_scale;
+                    let height = image_height as f32 * photo_scale;
+                    (width, height + base_node_h)
+                } else {
+                    (Self::estimate_text_node_width(person_name), base_node_h * 3.0)
+                }
+            }
+        }
+    }
+
     /// ノードのレイアウトを計算
-    pub fn compute_layout(tree: &FamilyTree, origin: egui::Pos2) -> Vec<LayoutNode> {
+    pub fn compute_layout(
+        tree: &FamilyTree,
+        origin: egui::Pos2,
+        photo_dimensions: &HashMap<PersonId, (u32, u32)>,
+    ) -> Vec<LayoutNode> {
         // 世代計算：ルートを0として子へ+1
         let roots = tree.roots();
         let mut gen_map: HashMap<PersonId, usize> = HashMap::new();
@@ -61,10 +96,6 @@ impl LayoutEngine {
             ids.sort_by_key(|id| tree.persons.get(id).map(|p| p.name.clone()).unwrap_or_default());
         }
 
-        // 人物ノードの高さ：フォントサイズ14.0 + 上下パディング
-        let font_size = 14.0;
-        let padding_v = 16.0;
-        let base_node_h = font_size + padding_v;
         let x_gap = 50.0;
         let y_gap = 80.0;
 
@@ -77,48 +108,21 @@ impl LayoutEngine {
                 for (i, id) in ids.iter().enumerate() {
                     let person = tree.persons.get(id);
                     let person_name = person.map(|p| p.name.as_str()).unwrap_or("Unknown");
-                    
-                    // ノードのサイズを計算
                     let (node_w, node_h) = if let Some(p) = person {
-                        if p.display_mode == crate::core::tree::PersonDisplayMode::NameAndPhoto {
-                            // 写真表示モード：画像サイズを読み込んで倍率を適用
-                            if let Some(photo_path) = &p.photo_path {
-                                if let Ok(image_data) = std::fs::read(photo_path) {
-                                    if let Ok(image) = image::load_from_memory(&image_data) {
-                                        let img_w = image.width() as f32 * p.photo_scale;
-                                        let img_h = image.height() as f32 * p.photo_scale;
-                                        // 名前表示用のスペースを追加
-                                        let name_height = base_node_h;
-                                        (img_w, img_h + name_height)
-                                    } else {
-                                        // 画像読み込み失敗：デフォルトサイズ
-                                        let char_count = person_name.chars().count();
-                                        let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
-                                        (estimated_width, base_node_h * 3.0)
-                                    }
-                                } else {
-                                    // ファイル読み込み失敗：デフォルトサイズ
-                                    let char_count = person_name.chars().count();
-                                    let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
-                                    (estimated_width, base_node_h * 3.0)
-                                }
-                            } else {
-                                // 写真パスなし：デフォルトサイズ
-                                let char_count = person_name.chars().count();
-                                let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
-                                (estimated_width, base_node_h * 3.0)
-                            }
-                        } else {
-                            // 名前のみモード
-                            let char_count = person_name.chars().count();
-                            let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
-                            (estimated_width, base_node_h)
-                        }
+                        let dimensions = photo_dimensions.get(id).copied();
+                        Self::calculate_person_node_size(
+                            person_name,
+                            p.display_mode,
+                            p.photo_scale,
+                            dimensions,
+                        )
                     } else {
-                        // personがない場合
-                        let char_count = person_name.chars().count();
-                        let estimated_width = (char_count as f32 * 14.0).max(100.0).min(250.0);
-                        (estimated_width, base_node_h)
+                        Self::calculate_person_node_size(
+                            person_name,
+                            PersonDisplayMode::NameOnly,
+                            1.0,
+                            None,
+                        )
                     };
                     
                     let (x, y) = if let Some(person) = person {
@@ -467,7 +471,8 @@ mod tests {
         );
         
         let origin = egui::pos2(0.0, 0.0);
-        let nodes = LayoutEngine::compute_layout(&tree, origin);
+        let photo_dimensions = HashMap::new();
+        let nodes = LayoutEngine::compute_layout(&tree, origin, &photo_dimensions);
         
         assert_eq!(nodes.len(), 1);
         assert_eq!(nodes[0].generation, 0);
@@ -498,7 +503,8 @@ mod tests {
         tree.add_parent_child(parent, child, "biological".to_string());
         
         let origin = egui::pos2(0.0, 0.0);
-        let nodes = LayoutEngine::compute_layout(&tree, origin);
+        let photo_dimensions = HashMap::new();
+        let nodes = LayoutEngine::compute_layout(&tree, origin, &photo_dimensions);
         
         assert_eq!(nodes.len(), 2);
         
@@ -523,7 +529,8 @@ mod tests {
         );
         
         let origin = egui::pos2(0.0, 0.0);
-        let nodes = LayoutEngine::compute_layout(&tree, origin);
+        let photo_dimensions = HashMap::new();
+        let nodes = LayoutEngine::compute_layout(&tree, origin, &photo_dimensions);
         
         assert_eq!(nodes.len(), 1);
         assert_eq!(nodes[0].rect.left(), 100.0);
@@ -541,7 +548,8 @@ mod tests {
         tree.add_parent_child(parent, child, "biological".to_string());
         
         let origin = egui::pos2(0.0, 0.0);
-        let nodes = LayoutEngine::compute_layout(&tree, origin);
+        let photo_dimensions = HashMap::new();
+        let nodes = LayoutEngine::compute_layout(&tree, origin, &photo_dimensions);
         
         assert_eq!(nodes.len(), 3);
         
@@ -556,6 +564,40 @@ mod tests {
         // Y座標が世代順になっていることを確認
         assert!(gp_node.rect.top() < p_node.rect.top());
         assert!(p_node.rect.top() < c_node.rect.top());
+    }
+
+    #[test]
+    fn test_compute_layout_with_photo_dimensions_hint() {
+        let mut tree = FamilyTree::default();
+        let person_id = tree.add_person(
+            "Photo Person".to_string(),
+            Gender::Unknown,
+            None,
+            "".to_string(),
+            false,
+            None,
+            (20.0, 30.0),
+        );
+
+        let person = tree
+            .persons
+            .get_mut(&person_id)
+            .expect("person should exist");
+        person.display_mode = PersonDisplayMode::NameAndPhoto;
+        person.photo_scale = 0.5;
+
+        let mut photo_dimensions = HashMap::new();
+        photo_dimensions.insert(person_id, (200, 100));
+
+        let origin = egui::pos2(0.0, 0.0);
+        let nodes = LayoutEngine::compute_layout(&tree, origin, &photo_dimensions);
+
+        assert_eq!(nodes.len(), 1);
+        let node = &nodes[0];
+        assert_eq!(node.rect.left(), 20.0);
+        assert_eq!(node.rect.top(), 30.0);
+        assert_eq!(node.rect.width(), 100.0);
+        assert_eq!(node.rect.height(), 80.0);
     }
 
     #[test]
