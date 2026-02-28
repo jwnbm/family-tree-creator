@@ -10,7 +10,7 @@ use super::{CanvasRenderer, NodeRenderer, NodeInteractionHandler, PanZoomHandler
 impl CanvasRenderer for App {
     fn render_canvas(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (rect, _response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
+            let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::click());
             let pointer_pos = ui.input(|i| i.pointer.interact_pos());
             
             // キャンバス情報を保存
@@ -76,6 +76,11 @@ impl CanvasRenderer for App {
             
             // イベントノード描画（ホバー/ドラッグ状態を先に取得）
             let (event_hovered, any_event_dragged) = self.render_event_nodes(ui, &painter, &screen_rects, pointer_pos);
+
+            // ノードのない領域でのダブルクリックで全体表示
+            if response.double_clicked() && !node_hovered && !event_hovered {
+                self.fit_canvas_to_contents();
+            }
             
             // パン・ズーム処理
             self.handle_pan_zoom(ui, rect, pointer_pos, node_hovered, any_node_dragged, event_hovered, any_event_dragged);

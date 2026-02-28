@@ -1,14 +1,18 @@
+use std::collections::HashMap;
+
 use eframe::egui;
 
 use crate::application::TreeFileService;
 use crate::core::i18n::{self as i18n, Texts};
+use crate::core::layout::LayoutEngine;
 use crate::core::tree::{FamilyTree, PersonId};
+use crate::infrastructure::read_image_dimensions;
 use crate::infrastructure::MultiFormatTreeRepository;
 use crate::ui::{
     CanvasRenderer, CanvasState, EventEditorState, EventsTabRenderer, FamiliesTabRenderer,
     FamilyEditorState, FileMenuRenderer, FileState, HelpMenuRenderer, LogLevel, LogState,
     PersonEditorState, PersonsTabRenderer, RelationEditorState, SettingsTabRenderer, SideTab,
-    UiState,
+    UiState, ViewMenuRenderer,
 };
 
 // 定数
@@ -121,6 +125,89 @@ impl App {
             .map(|p| p.name.clone())
             .unwrap_or_else(|| "Unknown".to_string())
     }
+
+    pub fn fit_canvas_to_contents(&mut self) {
+        if self.canvas.canvas_rect == egui::Rect::NOTHING {
+            return;
+        }
+
+        if self.tree.persons.is_empty() && self.tree.events.is_empty() {
+            self.canvas.zoom = 1.0;
+            self.canvas.pan = egui::Vec2::ZERO;
+            return;
+        }
+
+        let base_origin = self.canvas.canvas_rect.left_top() + egui::vec2(24.0, 24.0);
+        let origin = if self.canvas.show_grid {
+            LayoutEngine::snap_to_grid(base_origin, self.canvas.grid_size)
+        } else {
+            base_origin
+        };
+
+        let photo_dimensions: HashMap<PersonId, (u32, u32)> = self
+            .tree
+            .persons
+            .iter()
+            .filter_map(|(person_id, person)| {
+                if person.display_mode != crate::core::tree::PersonDisplayMode::NameAndPhoto {
+                    return None;
+                }
+
+                person
+                    .photo_path
+                    .as_deref()
+                    .and_then(read_image_dimensions)
+                    .map(|dimensions| (*person_id, dimensions))
+            })
+            .collect();
+
+        let nodes = LayoutEngine::compute_layout(&self.tree, origin, &photo_dimensions);
+
+        let mut world_bounds: Option<egui::Rect> = None;
+        for node in &nodes {
+            world_bounds = Some(match world_bounds {
+                Some(bounds) => bounds.union(node.rect),
+                None => node.rect,
+            });
+        }
+
+        let lang = self.ui.language;
+        for event in self.tree.events.values() {
+            let (width, height) = LayoutEngine::calculate_event_node_size(&event.name, lang);
+            let event_rect = egui::Rect::from_min_size(
+                egui::pos2(event.position.0, event.position.1),
+                egui::vec2(width, height),
+            );
+
+            world_bounds = Some(match world_bounds {
+                Some(bounds) => bounds.union(event_rect),
+                None => event_rect,
+            });
+        }
+
+        let Some(bounds) = world_bounds else {
+            return;
+        };
+
+        let margin = 40.0;
+        let min_width = 1.0;
+        let min_height = 1.0;
+        let content_width = bounds.width().max(min_width);
+        let content_height = bounds.height().max(min_height);
+        let available_width = (self.canvas.canvas_rect.width() - margin * 2.0).max(min_width);
+        let available_height = (self.canvas.canvas_rect.height() - margin * 2.0).max(min_height);
+
+        let fit_zoom_x = available_width / content_width;
+        let fit_zoom_y = available_height / content_height;
+        self.canvas.zoom = fit_zoom_x.min(fit_zoom_y).clamp(0.3, 3.0);
+
+        let world_center = bounds.center();
+        let screen_center = self.canvas.canvas_rect.center();
+        self.canvas.pan = screen_center - origin - (world_center - origin) * self.canvas.zoom;
+
+        let t = |key: &str| Texts::get(key, lang);
+        self.file.status = t("fit_to_view_done");
+    }
 }
 
 impl eframe::App for App {
@@ -137,6 +224,7 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 self.render_file_menu(ui, ctx);
+                self.render_view_menu(ui);
                 self.render_help_menu(ui, ctx);
             });
         });
