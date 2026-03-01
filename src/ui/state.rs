@@ -40,6 +40,12 @@ impl LogLevel {
     }
 }
 
+impl Default for LogLevel {
+    fn default() -> Self {
+        Self::Debug
+    }
+}
+
 /// ログメッセージ
 #[derive(Clone)]
 pub struct LogMessage {
@@ -66,11 +72,11 @@ impl Default for LogState {
 }
 
 impl LogState {
-    pub fn add(&mut self, message: String) {
-        self.add_with_level(message, LogLevel::Information);
-    }
-    
-    pub fn add_with_level(&mut self, message: String, level: LogLevel) {
+    pub fn add(&mut self, message: String, level: LogLevel) {
+        if level == LogLevel::Debug && !cfg!(debug_assertions) {
+            return;
+        }
+
         let now = chrono::Local::now();
         let timestamp = now.format("%H:%M:%S").to_string();
         

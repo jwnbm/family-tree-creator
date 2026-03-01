@@ -56,7 +56,7 @@ impl Default for App {
         app.load_settings_on_startup();
         
         let t = |key: &str| Texts::get(key, app.ui.language);
-        app.log.add(t("log_app_started"));
+        app.log.add(t("log_app_started"), LogLevel::Debug);
         app
     }
 }
@@ -82,14 +82,15 @@ impl App {
         match AppSettings::load_from_default_path() {
             Ok(Some(settings)) => {
                 self.apply_settings(settings);
-                self.log.add("設定ファイルを読み込みました".to_string());
+                self.log
+                    .add("設定ファイルを読み込みました".to_string(), LogLevel::Debug);
             }
             Ok(None) => {
                 self.apply_settings(AppSettings::default());
             }
             Err(error) => {
                 self.apply_settings(AppSettings::default());
-                self.log.add_with_level(
+                self.log.add(
                     format!("設定ファイルの読み込みに失敗しました: {error}"),
                     LogLevel::Warning,
                 );
@@ -100,7 +101,7 @@ impl App {
     pub(crate) fn save_settings(&mut self) {
         let settings = self.collect_settings();
         if let Err(error) = settings.save_to_default_path() {
-            self.log.add_with_level(
+            self.log.add(
                 format!("設定ファイルの保存に失敗しました: {error}"),
                 LogLevel::Error,
             );
@@ -110,7 +111,7 @@ impl App {
     fn set_error_status_and_log(&mut self, status_prefix: &str, error: &str) {
         let message = format!("{status_prefix}: {error}");
         self.file.status = message.clone();
-        self.log.add_with_level(message, LogLevel::Error);
+        self.log.add(message, LogLevel::Error);
     }
 
     pub(crate) fn visible_canvas_left_top(&self) -> (f32, f32) {
@@ -136,7 +137,10 @@ impl App {
 
         self.file.status = format!("{}: {}", t("saved"), self.file.file_path);
         self.log
-            .add(format!("{}: {}", t("log_file_saved"), self.file.file_path));
+            .add(
+                format!("{}: {}", t("log_file_saved"), self.file.file_path),
+                LogLevel::Debug,
+            );
     }
 
     pub fn load(&mut self) {
@@ -155,7 +159,10 @@ impl App {
         self.person_editor.selected = None;
         self.file.status = format!("{}: {}", t("loaded"), self.file.file_path);
         self.log
-            .add(format!("{}: {}", t("log_file_loaded"), self.file.file_path));
+            .add(
+                format!("{}: {}", t("log_file_loaded"), self.file.file_path),
+                LogLevel::Debug,
+            );
     }
 
     pub fn clear_person_form(&mut self) {
@@ -264,7 +271,7 @@ impl eframe::App for App {
         
         // i18n警告をログに出力
         for warning in i18n::take_warnings() {
-            self.log.add_with_level(warning, LogLevel::Warning);
+            self.log.add(warning, LogLevel::Warning);
         }
         
         // メニューバー

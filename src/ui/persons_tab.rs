@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use eframe::egui;
 use crate::app::App;
 use crate::core::tree::{Gender, Person, PersonDisplayMode, PersonId};
+use crate::ui::LogLevel;
 
 const DEFAULT_RELATION_KIND: &str = "biological";
 
@@ -49,7 +50,10 @@ impl App {
         self.load_selected_person_into_form(person_id);
         self.file.status = t("new_person_added");
         self.log
-            .add(format!("{}: {}", t("log_person_added"), t("new_person")));
+            .add(
+                format!("{}: {}", t("log_person_added"), t("new_person")),
+                LogLevel::Debug,
+            );
     }
 
     fn load_selected_person_into_form(&mut self, person_id: PersonId) {
@@ -230,7 +234,10 @@ impl App {
         self.clear_person_form();
         self.file.status = t("deleted");
         self.log
-            .add(format!("{}: {}", t("log_person_deleted"), person_name));
+            .add(
+                format!("{}: {}", t("log_person_deleted"), person_name),
+                LogLevel::Debug,
+            );
     }
 
     fn render_persons_tab_footer(&self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {

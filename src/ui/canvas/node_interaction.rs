@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::core::tree::PersonId;
 use crate::core::layout::LayoutEngine;
 use crate::core::i18n::Texts;
-use crate::ui::SideTab;
+use crate::ui::{LogLevel, SideTab};
 use super::NodeInteractionHandler;
 use std::collections::HashMap;
 
@@ -50,7 +50,7 @@ impl NodeInteractionHandler for App {
                             t("log_nodes_selected"),
                             t("log_node_drag_start"),
                             names.join(", ")
-                        ));
+                        ), LogLevel::Debug);
                     } else {
                         // 単一ノードの場合もドラッグ開始位置を記録
                         self.canvas.multi_drag_starts.clear();
@@ -63,7 +63,7 @@ impl NodeInteractionHandler for App {
                                 person.name,
                                 person.position.0,
                                 person.position.1
-                            ));
+                            ), LogLevel::Debug);
                         }
                     }
                     self.canvas.dragging_node = Some(n.id);
@@ -105,7 +105,7 @@ impl NodeInteractionHandler for App {
                             moved_info.len(),
                             t("log_nodes_moved"),
                             moved_info.join(", ")
-                        ));
+                        ), LogLevel::Debug);
                     } else if let Some(person) = self.tree.persons.get(&n.id) {
                         let start_pos = self.canvas.multi_drag_starts.get(&n.id);
                         if let Some(start) = start_pos {
@@ -119,7 +119,7 @@ impl NodeInteractionHandler for App {
                                 person.position.1,
                                 t("log_distance"),
                                 distance
-                            ));
+                            ), LogLevel::Debug);
                         }
                     }
                     
@@ -165,7 +165,7 @@ impl NodeInteractionHandler for App {
                             let person_name = self.get_person_name(&n.id);
                             let lang = self.ui.language;
                             let t = |key: &str| Texts::get(key, lang);
-                            self.log.add(format!("{}: {}", t("log_node_deselected"), person_name));
+                            self.log.add(format!("{}: {}", t("log_node_deselected"), person_name), LogLevel::Debug);
                             // 最後の選択を更新
                             if let Some(last_id) = self.person_editor.selected_ids.last() {
                                 self.person_editor.selected = Some(*last_id);
@@ -191,7 +191,7 @@ impl NodeInteractionHandler for App {
                             let person_name = self.get_person_name(&n.id);
                             let lang = self.ui.language;
                             let t = |key: &str| Texts::get(key, lang);
-                            self.log.add(format!("{}: {} ({} {}個)", t("log_node_added_to_selection"), person_name, t("log_total"), self.person_editor.selected_ids.len()));
+                            self.log.add(format!("{}: {} ({} {}個)", t("log_node_added_to_selection"), person_name, t("log_total"), self.person_editor.selected_ids.len()), LogLevel::Debug);
                             if let Some(person) = self.tree.persons.get(&n.id) {
                                 self.person_editor.new_name = person.name.clone();
                                 self.person_editor.new_gender = person.gender;
@@ -213,7 +213,7 @@ impl NodeInteractionHandler for App {
                         let person_name = self.get_person_name(&n.id);
                         let lang = self.ui.language;
                         let t = |key: &str| Texts::get(key, lang);
-                        self.log.add(format!("{}: {}", t("log_node_selected"), person_name));
+                        self.log.add(format!("{}: {}", t("log_node_selected"), person_name), LogLevel::Debug);
                         if let Some(person) = self.tree.persons.get(&n.id) {
                             self.person_editor.new_name = person.name.clone();
                             self.person_editor.new_gender = person.gender;

@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::app::App;
 use crate::core::tree::EventRelationType;
+use crate::ui::LogLevel;
 
 pub trait EventsTabRenderer {
     fn render_events_tab(&mut self, ui: &mut egui::Ui, t: impl Fn(&str) -> String);
@@ -109,7 +110,7 @@ impl App {
             } else {
                 event_name
             }
-        ));
+        ), LogLevel::Debug);
     }
 
     fn update_selected_event(&mut self, t: &impl Fn(&str) -> String) {
@@ -131,7 +132,7 @@ impl App {
                 old_name,
                 t("log_to"),
                 event.name
-            ));
+            ), LogLevel::Debug);
         }
     }
 
@@ -145,7 +146,10 @@ impl App {
         self.clear_event_editor_selection();
         self.file.status = t("event_deleted");
         self.log
-            .add(format!("{}: {}", t("log_event_deleted"), event_name));
+            .add(
+                format!("{}: {}", t("log_event_deleted"), event_name),
+                LogLevel::Debug,
+            );
     }
 
     fn render_event_relations_section(
@@ -285,7 +289,7 @@ impl App {
             t("log_event_relation_removed"),
             event_name,
             person_name
-        ));
+        ), LogLevel::Debug);
     }
 
     fn add_event_relation_from_editor(
@@ -310,6 +314,6 @@ impl App {
             t("log_event_relation_added"),
             event_name,
             person_name
-        ));
+        ), LogLevel::Debug);
     }
 }

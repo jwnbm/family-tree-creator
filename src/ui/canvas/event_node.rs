@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::core::tree::{PersonId, EventId};
 use crate::core::layout::LayoutEngine;
 use crate::core::i18n::Texts;
-use crate::ui::{EventNodeRenderer, SideTab};
+use crate::ui::{EventNodeRenderer, LogLevel, SideTab};
 use std::collections::HashMap;
 
 impl EventNodeRenderer for App {
@@ -108,7 +108,7 @@ impl EventNodeRenderer for App {
                     name.clone()
                 };
                 let t = |key: &str| Texts::get(key, lang);
-                self.log.add(format!("{}: {}", t("log_event_drag_started"), event_name));
+                self.log.add(format!("{}: {}", t("log_event_drag_started"), event_name), LogLevel::Debug);
             }
 
             if interact_response.dragged() && self.canvas.dragging_event == Some(event_id) {
@@ -132,7 +132,7 @@ impl EventNodeRenderer for App {
                     name.clone()
                 };
                 let t = |key: &str| Texts::get(key, lang);
-                self.log.add(format!("{}: {}", t("log_event_moved"), event_name));
+                self.log.add(format!("{}: {}", t("log_event_moved"), event_name), LogLevel::Debug);
                 
                 if self.canvas.show_grid {
                     if let Some(event) = self.tree.events.get_mut(&event_id) {
@@ -161,7 +161,7 @@ impl EventNodeRenderer for App {
                     name
                 };
                 let t = |key: &str| Texts::get(key, lang);
-                self.log.add(format!("{}: {}", t("log_event_selected"), event_name));
+                self.log.add(format!("{}: {}", t("log_event_selected"), event_name), LogLevel::Debug);
             }
         }
         

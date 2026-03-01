@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::ui::LogLevel;
 
 use uuid::Uuid;
 
@@ -33,7 +34,10 @@ impl App {
         self.family_editor.new_family_name = t("new_family");
         self.file.status = t("new_family_added");
         self.log
-            .add(format!("{}: {}", t("log_family_added"), t("new_family")));
+            .add(
+                format!("{}: {}", t("log_family_added"), t("new_family")),
+                LogLevel::Debug,
+            );
     }
 
     fn render_families_tab_editor_section(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
@@ -121,7 +125,7 @@ impl App {
             person_name,
             t("log_from"),
             family_name
-        ));
+        ), LogLevel::Debug);
     }
 
     fn render_add_family_member_section(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
@@ -182,7 +186,7 @@ impl App {
             person_name,
             t("log_to"),
             family_name
-        ));
+        ), LogLevel::Debug);
     }
 
     fn render_families_tab_actions_section(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
@@ -232,7 +236,7 @@ impl App {
                 old_name,
                 t("log_to"),
                 family.name
-            ));
+            ), LogLevel::Debug);
         }
     }
 
@@ -242,7 +246,10 @@ impl App {
         self.clear_family_editor_selection();
         self.file.status = t("family_deleted");
         self.log
-            .add(format!("{}: {}", t("log_family_deleted"), family_name));
+            .add(
+                format!("{}: {}", t("log_family_deleted"), family_name),
+                LogLevel::Debug,
+            );
     }
 
     fn family_editor_color_rgb(&self) -> (u8, u8, u8) {

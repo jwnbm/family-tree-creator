@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::core::tree::PersonId;
 use crate::core::i18n::Texts;
-use crate::ui::{FamilyBoxRenderer, SideTab};
+use crate::ui::{FamilyBoxRenderer, LogLevel, SideTab};
 use std::collections::HashMap;
 
 impl FamilyBoxRenderer for App {
@@ -131,7 +131,7 @@ impl FamilyBoxRenderer for App {
                     let lang = self.ui.language;
                     let t = |key: &str| Texts::get(key, lang);
                     self.file.status = format!("{} {}", t("selected_family"), family.name);
-                    self.log.add(format!("{}: {}", t("log_family_selected"), family.name));
+                    self.log.add(format!("{}: {}", t("log_family_selected"), family.name), LogLevel::Debug);
                 }
             }
         }
