@@ -79,11 +79,14 @@ impl App {
     }
 
     fn load_settings_on_startup(&mut self) {
+        let lang = self.ui.language;
+        let t = |key: &str| Texts::get(key, lang);
+
         match AppSettings::load_from_default_path() {
             Ok(Some(settings)) => {
                 self.apply_settings(settings);
                 self.log
-                    .add("設定ファイルを読み込みました".to_string(), LogLevel::Debug);
+                    .add(t("log_settings_loaded"), LogLevel::Debug);
             }
             Ok(None) => {
                 self.apply_settings(AppSettings::default());
@@ -91,7 +94,7 @@ impl App {
             Err(error) => {
                 self.apply_settings(AppSettings::default());
                 self.log.add(
-                    format!("設定ファイルの読み込みに失敗しました: {error}"),
+                    format!("{}: {error}", t("log_settings_load_failed")),
                     LogLevel::Warning,
                 );
             }
@@ -99,10 +102,13 @@ impl App {
     }
 
     pub(crate) fn save_settings(&mut self) {
+        let lang = self.ui.language;
+        let t = |key: &str| Texts::get(key, lang);
+
         let settings = self.collect_settings();
         if let Err(error) = settings.save_to_default_path() {
             self.log.add(
-                format!("設定ファイルの保存に失敗しました: {error}"),
+                format!("{}: {error}", t("log_settings_save_failed")),
                 LogLevel::Error,
             );
         }
@@ -131,7 +137,7 @@ impl App {
         let service = TreeFileService::new(MultiFormatTreeRepository::new());
 
         if let Err(error) = service.save_tree(&self.file.file_path, &self.tree) {
-            self.set_error_status_and_log("Save error", &error.to_string());
+            self.set_error_status_and_log(&t("save_error"), &error.to_string());
             return;
         }
 
@@ -150,7 +156,7 @@ impl App {
         let tree = match service.load_tree(&self.file.file_path) {
             Ok(tree) => tree,
             Err(error) => {
-                self.set_error_status_and_log("Load error", &error.to_string());
+                self.set_error_status_and_log(&t("load_error"), &error.to_string());
                 return;
             }
         };
@@ -175,9 +181,10 @@ impl App {
     }
 
     pub fn get_person_name(&self, id: &PersonId) -> String {
+        let lang = self.ui.language;
         self.tree.persons.get(id)
             .map(|p| p.name.clone())
-            .unwrap_or_else(|| "Unknown".to_string())
+            .unwrap_or_else(|| Texts::get("unknown", lang))
     }
 
     pub fn fit_canvas_to_contents(&mut self) {
@@ -313,9 +320,9 @@ impl eframe::App for App {
             .min_height(60.0)
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.heading("📋 ログ");
+                    ui.heading(t("log_panel_title"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("クリア").clicked() {
+                        if ui.button(t("clear")).clicked() {
                             self.log.clear();
                         }
                     });

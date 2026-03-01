@@ -191,7 +191,7 @@ impl NodeInteractionHandler for App {
                             let person_name = self.get_person_name(&n.id);
                             let lang = self.ui.language;
                             let t = |key: &str| Texts::get(key, lang);
-                            self.log.add(format!("{}: {} ({} {}個)", t("log_node_added_to_selection"), person_name, t("log_total"), self.person_editor.selected_ids.len()), LogLevel::Debug);
+                            self.log.add(format!("{}: {} ({} {}{})", t("log_node_added_to_selection"), person_name, t("log_total"), self.person_editor.selected_ids.len(), t("count_suffix")), LogLevel::Debug);
                             if let Some(person) = self.tree.persons.get(&n.id) {
                                 self.person_editor.new_name = person.name.clone();
                                 self.person_editor.new_gender = person.gender;

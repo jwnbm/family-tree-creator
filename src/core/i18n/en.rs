@@ -14,7 +14,16 @@ pub fn translate(key: &str) -> String {
         "new" => "New",
         "open" => "Open",
         "save" => "Save",
+        "clear" => "Clear",
         "save_as" => "Save As...",
+        "save_error" => "Save error",
+        "load_error" => "Load error",
+        "file_filter_family_tree" => "Family Tree",
+        "file_filter_json" => "JSON",
+        "file_filter_sqlite" => "SQLite",
+        "file_filter_images" => "Images",
+        "default_file_name" => "tree.json",
+        "count_suffix" => "",
         "fit_to_view" => "Fit to View",
         "fit_to_view_done" => "Fit to view applied",
         "new_tree_created" => "New tree created",
@@ -162,6 +171,10 @@ pub fn translate(key: &str) -> String {
         "log_family_member_removed" => "Member removed from family",
         "log_from" => "from",
         "log_to" => "to",
+        "log_settings_loaded" => "Settings file loaded",
+        "log_settings_load_failed" => "Failed to load settings file",
+        "log_settings_save_failed" => "Failed to save settings file",
+        "log_panel_title" => "📋 Log",
         _ => {
             if cfg!(debug_assertions) {
                 let warning = format!("[i18n Warning] Unknown translation key (en): '{}'", key);

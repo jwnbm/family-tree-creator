@@ -133,7 +133,7 @@ impl App {
             ui.text_edit_singleline(&mut self.person_editor.new_photo_path);
             if ui.button(t("choose_photo")).clicked() {
                 if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("Images", &["png", "jpg", "jpeg", "bmp", "gif"])
+                    .add_filter(t("file_filter_images"), &["png", "jpg", "jpeg", "bmp", "gif"])
                     .pick_file()
                 {
                     self.person_editor.new_photo_path = path.display().to_string();
@@ -273,7 +273,7 @@ impl App {
                         let person_name = persons
                             .get(id)
                             .map(|person| person.name.clone())
-                            .unwrap_or_else(|| "Unknown".to_string());
+                            .unwrap_or_else(|| t("unknown"));
                         ui.selectable_value(selected, Some(*id), person_name);
                     }
                 }
