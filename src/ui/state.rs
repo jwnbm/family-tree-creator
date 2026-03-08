@@ -135,10 +135,16 @@ pub struct PersonEditorState {
     pub selected_ids: Vec<PersonId>,
     pub new_name: String,
     pub new_gender: Gender,
-    pub new_birth: String,
+    pub new_birth_year: String,
+    pub new_birth_month: String,
+    pub new_birth_day: String,
+    pub new_birth_is_bc: bool,
     pub new_memo: String,
     pub new_deceased: bool,
-    pub new_death: String,
+    pub new_death_year: String,
+    pub new_death_month: String,
+    pub new_death_day: String,
+    pub new_death_is_bc: bool,
     pub new_photo_path: String,
     pub new_display_mode: PersonDisplayMode,
     pub new_photo_scale: f32,
@@ -149,10 +155,16 @@ impl PersonEditorState {
     pub fn clear(&mut self) {
         self.new_name.clear();
         self.new_gender = Gender::Unknown;
-        self.new_birth.clear();
+        self.new_birth_year.clear();
+        self.new_birth_month.clear();
+        self.new_birth_day.clear();
+        self.new_birth_is_bc = false;
         self.new_memo.clear();
         self.new_deceased = false;
-        self.new_death.clear();
+        self.new_death_year.clear();
+        self.new_death_month.clear();
+        self.new_death_day.clear();
+        self.new_death_is_bc = false;
         self.new_photo_path.clear();
         self.new_display_mode = PersonDisplayMode::NameOnly;
         self.new_photo_scale = 1.0;
@@ -213,7 +225,10 @@ impl FamilyEditorState {
 pub struct EventEditorState {
     pub selected: Option<EventId>,
     pub new_event_name: String,
-    pub new_event_date: String,
+    pub new_event_date_year: String,
+    pub new_event_date_month: String,
+    pub new_event_date_day: String,
+    pub new_event_date_is_bc: bool,
     pub new_event_description: String,
     pub new_event_color: [f32; 3],
     
@@ -226,7 +241,10 @@ pub struct EventEditorState {
 impl EventEditorState {
     pub fn clear(&mut self) {
         self.new_event_name.clear();
-        self.new_event_date.clear();
+        self.new_event_date_year.clear();
+        self.new_event_date_month.clear();
+        self.new_event_date_day.clear();
+        self.new_event_date_is_bc = false;
         self.new_event_description.clear();
         self.new_event_color = [1.0, 1.0, 0.8]; // デフォルトの淡い黄色
     }

@@ -56,7 +56,15 @@ impl App {
         ui.text_edit_singleline(&mut self.event_editor.new_event_name);
 
         ui.label(t("date"));
-        ui.text_edit_singleline(&mut self.event_editor.new_event_date);
+        ui.horizontal(|ui| {
+            ui.label(t("year"));
+            ui.add(egui::TextEdit::singleline(&mut self.event_editor.new_event_date_year).desired_width(64.0));
+            ui.label(t("month"));
+            ui.add(egui::TextEdit::singleline(&mut self.event_editor.new_event_date_month).desired_width(40.0));
+            ui.label(t("day"));
+            ui.add(egui::TextEdit::singleline(&mut self.event_editor.new_event_date_day).desired_width(40.0));
+            ui.checkbox(&mut self.event_editor.new_event_date_is_bc, t("bc"));
+        });
 
         ui.label(t("description"));
         ui.text_edit_multiline(&mut self.event_editor.new_event_description);
@@ -89,7 +97,12 @@ impl App {
     fn add_event_from_editor(&mut self, t: &impl Fn(&str) -> String) {
         let visible_left_top = self.visible_canvas_left_top();
         let event_name = self.event_editor.new_event_name.clone();
-        let event_date = App::parse_optional_field(&self.event_editor.new_event_date);
+        let event_date = App::iso_date_from_parts(
+            &self.event_editor.new_event_date_year,
+            &self.event_editor.new_event_date_month,
+            &self.event_editor.new_event_date_day,
+            self.event_editor.new_event_date_is_bc,
+        );
         let event_description = self.event_editor.new_event_description.clone();
         let event_color = self.event_editor_color_rgb();
 
@@ -122,7 +135,12 @@ impl App {
         if let Some(event) = self.tree.events.get_mut(&event_id) {
             let old_name = event.name.clone();
             event.name = self.event_editor.new_event_name.clone();
-            event.date = App::parse_optional_field(&self.event_editor.new_event_date);
+            event.date = App::iso_date_from_parts(
+                &self.event_editor.new_event_date_year,
+                &self.event_editor.new_event_date_month,
+                &self.event_editor.new_event_date_day,
+                self.event_editor.new_event_date_is_bc,
+            );
             event.description = self.event_editor.new_event_description.clone();
             event.color = event_color;
             self.file.status = t("event_updated");

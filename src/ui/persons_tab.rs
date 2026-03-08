@@ -60,10 +60,20 @@ impl App {
         if let Some(person) = self.tree.persons.get(&person_id) {
             self.person_editor.new_name = person.name.clone();
             self.person_editor.new_gender = person.gender;
-            self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+            let (birth_year, birth_month, birth_day, birth_is_bc) =
+                App::date_parts_from_iso(person.birth.as_deref());
+            self.person_editor.new_birth_year = birth_year;
+            self.person_editor.new_birth_month = birth_month;
+            self.person_editor.new_birth_day = birth_day;
+            self.person_editor.new_birth_is_bc = birth_is_bc;
             self.person_editor.new_memo = person.memo.clone();
             self.person_editor.new_deceased = person.deceased;
-            self.person_editor.new_death = person.death.clone().unwrap_or_default();
+            let (death_year, death_month, death_day, death_is_bc) =
+                App::date_parts_from_iso(person.death.as_deref());
+            self.person_editor.new_death_year = death_year;
+            self.person_editor.new_death_month = death_month;
+            self.person_editor.new_death_day = death_day;
+            self.person_editor.new_death_is_bc = death_is_bc;
             self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
             self.person_editor.new_display_mode = person.display_mode;
             self.person_editor.new_photo_scale = person.photo_scale;
@@ -115,13 +125,25 @@ impl App {
         });
         ui.horizontal(|ui| {
             ui.label(t("birth"));
-            ui.text_edit_singleline(&mut self.person_editor.new_birth);
+            ui.label(t("year"));
+            ui.add(egui::TextEdit::singleline(&mut self.person_editor.new_birth_year).desired_width(64.0));
+            ui.label(t("month"));
+            ui.add(egui::TextEdit::singleline(&mut self.person_editor.new_birth_month).desired_width(40.0));
+            ui.label(t("day"));
+            ui.add(egui::TextEdit::singleline(&mut self.person_editor.new_birth_day).desired_width(40.0));
+            ui.checkbox(&mut self.person_editor.new_birth_is_bc, t("bc"));
         });
         ui.checkbox(&mut self.person_editor.new_deceased, t("deceased"));
         if self.person_editor.new_deceased {
             ui.horizontal(|ui| {
                 ui.label(t("death"));
-                ui.text_edit_singleline(&mut self.person_editor.new_death);
+                ui.label(t("year"));
+                ui.add(egui::TextEdit::singleline(&mut self.person_editor.new_death_year).desired_width(32.0));
+                ui.label(t("month"));
+                ui.add(egui::TextEdit::singleline(&mut self.person_editor.new_death_month).desired_width(20.0));
+                ui.label(t("day"));
+                ui.add(egui::TextEdit::singleline(&mut self.person_editor.new_death_day).desired_width(20.0));
+                ui.checkbox(&mut self.person_editor.new_death_is_bc, t("bc"));
             });
         }
         ui.label(t("memo"));
@@ -138,7 +160,7 @@ impl App {
     fn render_person_photo_fields(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
         ui.horizontal(|ui| {
             ui.label(t("photo_path"));
-            ui.text_edit_singleline(&mut self.person_editor.new_photo_path);
+            ui.add(egui::TextEdit::singleline(&mut self.person_editor.new_photo_path).desired_width(100.0));
             if ui.button(t("choose_photo")).clicked() {
                 if let Some(path) = rfd::FileDialog::new()
                     .add_filter(t("file_filter_images"), &["png", "jpg", "jpeg", "bmp", "gif"])
@@ -206,14 +228,22 @@ impl App {
         if let Some(person) = self.tree.persons.get_mut(&person_id) {
             person.name = self.person_editor.new_name.trim().to_string();
             person.gender = self.person_editor.new_gender;
-            person.birth = App::parse_optional_field(&self.person_editor.new_birth);
+            person.birth = App::iso_date_from_parts(
+                &self.person_editor.new_birth_year,
+                &self.person_editor.new_birth_month,
+                &self.person_editor.new_birth_day,
+                self.person_editor.new_birth_is_bc,
+            );
             person.memo = self.person_editor.new_memo.clone();
             person.deceased = self.person_editor.new_deceased;
-            person.death = self
-                .person_editor
-                .new_deceased
-                .then(|| App::parse_optional_field(&self.person_editor.new_death))
-                .flatten();
+            person.death = self.person_editor.new_deceased.then(|| {
+                App::iso_date_from_parts(
+                    &self.person_editor.new_death_year,
+                    &self.person_editor.new_death_month,
+                    &self.person_editor.new_death_day,
+                    self.person_editor.new_death_is_bc,
+                )
+            }).flatten();
             person.photo_path = if self.person_editor.new_photo_path.trim().is_empty() {
                 None
             } else {

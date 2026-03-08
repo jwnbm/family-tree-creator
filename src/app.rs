@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::NaiveDate;
 use eframe::egui;
 
 use crate::application::{AppSettings, TreeFileService};
@@ -175,9 +176,83 @@ impl App {
         self.person_editor.clear();
     }
 
-    pub fn parse_optional_field(s: &str) -> Option<String> {
-        let trimmed = s.trim();
-        (!trimmed.is_empty()).then(|| trimmed.to_string())
+    pub fn date_parts_from_iso(value: Option<&str>) -> (String, String, String, bool) {
+        let Some(text) = value.map(str::trim).filter(|date_text| !date_text.is_empty()) else {
+            return (String::new(), String::new(), String::new(), false);
+        };
+
+        let mut date_parts = text.rsplitn(3, '-');
+        let Some(day_text) = date_parts.next() else {
+            return (text.to_string(), String::new(), String::new(), false);
+        };
+        let Some(month_text) = date_parts.next() else {
+            return (text.to_string(), String::new(), String::new(), false);
+        };
+        let Some(year_text) = date_parts.next() else {
+            return (text.to_string(), String::new(), String::new(), false);
+        };
+
+        let Some(month) = month_text.parse::<u32>().ok() else {
+            return (text.to_string(), String::new(), String::new(), false);
+        };
+        let Some(day) = day_text.parse::<u32>().ok() else {
+            return (text.to_string(), String::new(), String::new(), false);
+        };
+        let Some(astronomical_year) = year_text.parse::<i32>().ok() else {
+            return (text.to_string(), String::new(), String::new(), false);
+        };
+
+        let is_bc = astronomical_year <= 0;
+        let display_year = if is_bc {
+            1 - astronomical_year
+        } else {
+            astronomical_year
+        };
+
+        (
+            display_year.to_string(),
+            month.to_string(),
+            day.to_string(),
+            is_bc,
+        )
+    }
+
+    pub fn iso_date_from_parts(
+        year: &str,
+        month: &str,
+        day: &str,
+        is_bc: bool,
+    ) -> Option<String> {
+        let year_text = year.trim();
+        let month_text = month.trim();
+        let day_text = day.trim();
+
+        if year_text.is_empty() && month_text.is_empty() && day_text.is_empty() {
+            return None;
+        }
+
+        let display_year = year_text.parse::<i32>().ok()?;
+        let month_value = month_text.parse::<u32>().ok()?;
+        let day_value = day_text.parse::<u32>().ok()?;
+        if display_year <= 0 {
+            return None;
+        }
+
+        let astronomical_year = if is_bc {
+            1 - display_year
+        } else {
+            display_year
+        };
+
+        NaiveDate::from_ymd_opt(astronomical_year, month_value, day_value)?;
+
+        let year_output = if astronomical_year > 0 {
+            format!("{astronomical_year:04}")
+        } else {
+            format!("{astronomical_year:+05}")
+        };
+
+        Some(format!("{year_output}-{month_value:02}-{day_value:02}"))
     }
 
     pub fn get_person_name(&self, id: &PersonId) -> String {

@@ -172,10 +172,20 @@ impl NodeInteractionHandler for App {
                                 if let Some(person) = self.tree.persons.get(last_id) {
                                     self.person_editor.new_name = person.name.clone();
                                     self.person_editor.new_gender = person.gender;
-                                    self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+                                    let (birth_year, birth_month, birth_day, birth_is_bc) =
+                                        App::date_parts_from_iso(person.birth.as_deref());
+                                    self.person_editor.new_birth_year = birth_year;
+                                    self.person_editor.new_birth_month = birth_month;
+                                    self.person_editor.new_birth_day = birth_day;
+                                    self.person_editor.new_birth_is_bc = birth_is_bc;
                                     self.person_editor.new_memo = person.memo.clone();
                                     self.person_editor.new_deceased = person.deceased;
-                                    self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                                    let (death_year, death_month, death_day, death_is_bc) =
+                                        App::date_parts_from_iso(person.death.as_deref());
+                                    self.person_editor.new_death_year = death_year;
+                                    self.person_editor.new_death_month = death_month;
+                                    self.person_editor.new_death_day = death_day;
+                                    self.person_editor.new_death_is_bc = death_is_bc;
                                     self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                                     self.person_editor.new_display_mode = person.display_mode;
                                     self.person_editor.new_photo_scale = person.photo_scale;
@@ -196,10 +206,20 @@ impl NodeInteractionHandler for App {
                             if let Some(person) = self.tree.persons.get(&n.id) {
                                 self.person_editor.new_name = person.name.clone();
                                 self.person_editor.new_gender = person.gender;
-                                self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+                                let (birth_year, birth_month, birth_day, birth_is_bc) =
+                                    App::date_parts_from_iso(person.birth.as_deref());
+                                self.person_editor.new_birth_year = birth_year;
+                                self.person_editor.new_birth_month = birth_month;
+                                self.person_editor.new_birth_day = birth_day;
+                                self.person_editor.new_birth_is_bc = birth_is_bc;
                                 self.person_editor.new_memo = person.memo.clone();
                                 self.person_editor.new_deceased = person.deceased;
-                                self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                                let (death_year, death_month, death_day, death_is_bc) =
+                                    App::date_parts_from_iso(person.death.as_deref());
+                                self.person_editor.new_death_year = death_year;
+                                self.person_editor.new_death_month = death_month;
+                                self.person_editor.new_death_day = death_day;
+                                self.person_editor.new_death_is_bc = death_is_bc;
                                 self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                                 self.person_editor.new_display_mode = person.display_mode;
                                 self.person_editor.new_photo_scale = person.photo_scale;
@@ -219,10 +239,20 @@ impl NodeInteractionHandler for App {
                         if let Some(person) = self.tree.persons.get(&n.id) {
                             self.person_editor.new_name = person.name.clone();
                             self.person_editor.new_gender = person.gender;
-                            self.person_editor.new_birth = person.birth.clone().unwrap_or_default();
+                            let (birth_year, birth_month, birth_day, birth_is_bc) =
+                                App::date_parts_from_iso(person.birth.as_deref());
+                            self.person_editor.new_birth_year = birth_year;
+                            self.person_editor.new_birth_month = birth_month;
+                            self.person_editor.new_birth_day = birth_day;
+                            self.person_editor.new_birth_is_bc = birth_is_bc;
                             self.person_editor.new_memo = person.memo.clone();
                             self.person_editor.new_deceased = person.deceased;
-                            self.person_editor.new_death = person.death.clone().unwrap_or_default();
+                            let (death_year, death_month, death_day, death_is_bc) =
+                                App::date_parts_from_iso(person.death.as_deref());
+                            self.person_editor.new_death_year = death_year;
+                            self.person_editor.new_death_month = death_month;
+                            self.person_editor.new_death_day = death_day;
+                            self.person_editor.new_death_is_bc = death_is_bc;
                             self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                             self.person_editor.new_display_mode = person.display_mode;
                             self.person_editor.new_photo_scale = person.photo_scale;

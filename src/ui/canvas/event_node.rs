@@ -149,7 +149,12 @@ impl EventNodeRenderer for App {
             if interact_response.clicked() {
                 self.event_editor.selected = Some(event_id);
                 self.event_editor.new_event_name = name.clone();
-                self.event_editor.new_event_date = date.unwrap_or_default();
+                let (date_year, date_month, date_day, date_is_bc) =
+                    App::date_parts_from_iso(date.as_deref());
+                self.event_editor.new_event_date_year = date_year;
+                self.event_editor.new_event_date_month = date_month;
+                self.event_editor.new_event_date_day = date_day;
+                self.event_editor.new_event_date_is_bc = date_is_bc;
                 self.event_editor.new_event_description = description;
                 let (r, g, b) = color;
                 self.event_editor.new_event_color = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
