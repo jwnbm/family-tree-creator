@@ -50,10 +50,16 @@ pub struct Person {
     pub display_mode: PersonDisplayMode, // 表示モード
     #[serde(default = "default_photo_scale")]
     pub photo_scale: f32, // 写真の倍率（デフォルト: 1.0）
+    #[serde(default = "default_parent_edge_bend_percent")]
+    pub parent_edge_bend_percent: f32, // 親子エッジの曲折位置（親からの割合%）
 }
 
 fn default_photo_scale() -> f32 {
     1.0
+}
+
+fn default_parent_edge_bend_percent() -> f32 {
+    50.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,6 +154,7 @@ impl FamilyTree {
                 photo_path: Some("photo/DefaultImage.gif".to_string()),
                 display_mode: PersonDisplayMode::NameOnly,
                 photo_scale: 1.0,
+                parent_edge_bend_percent: 50.0,
             },
         );
         id

@@ -7,9 +7,11 @@ fn draw_vertical_polyline(
     painter: &egui::Painter,
     start: egui::Pos2,
     end: egui::Pos2,
+    bend_ratio: f32,
     stroke: egui::Stroke,
 ) {
-    let mid_y = (start.y + end.y) * 0.5;
+    let clamped_bend_ratio = bend_ratio.clamp(0.0, 1.0);
+    let mid_y = start.y + (end.y - start.y) * clamped_bend_ratio;
     let bend_start = egui::pos2(start.x, mid_y);
     let bend_end = egui::pos2(end.x, mid_y);
 
@@ -31,6 +33,10 @@ fn draw_horizontal_polyline(
     painter.line_segment([start, bend_start], stroke);
     painter.line_segment([bend_start, bend_end], stroke);
     painter.line_segment([bend_end, end], stroke);
+}
+
+fn parent_bend_ratio_from_person_percent(percent: f32) -> f32 {
+    (percent / 100.0).clamp(0.0, 1.0)
 }
 
 impl EdgeRenderer for App {
@@ -86,6 +92,12 @@ impl EdgeRenderer for App {
 
         for e in &self.tree.edges {
             let child_id = e.child;
+            let bend_ratio = self
+                .tree
+                .persons
+                .get(&child_id)
+                .map(|person| parent_bend_ratio_from_person_percent(person.parent_edge_bend_percent))
+                .unwrap_or(0.5);
             
             if processed_children.contains(&child_id) {
                 continue;
@@ -127,7 +139,7 @@ impl EdgeRenderer for App {
                             let child_top = rc.center_top();
                             let stroke = egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY);
 
-                            draw_vertical_polyline(painter, mid, child_top, stroke);
+                            draw_vertical_polyline(painter, mid, child_top, bend_ratio, stroke);
                         }
                     } else {
                         if let (Some(rf), Some(rm), Some(rc)) = (
@@ -147,7 +159,7 @@ impl EdgeRenderer for App {
                             );
                             let child_top = rc.center_top();
 
-                            draw_vertical_polyline(painter, mid, child_top, stroke);
+                            draw_vertical_polyline(painter, mid, child_top, bend_ratio, stroke);
                         }
                     }
                     processed_children.insert(child_id);
@@ -162,6 +174,7 @@ impl EdgeRenderer for App {
                     painter,
                     a,
                     b,
+                    bend_ratio,
                     egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
                 );
             }

@@ -142,6 +142,7 @@ pub struct PersonEditorState {
     pub new_photo_path: String,
     pub new_display_mode: PersonDisplayMode,
     pub new_photo_scale: f32,
+    pub new_parent_edge_bend_percent: f32,
 }
 
 impl PersonEditorState {
@@ -155,6 +156,7 @@ impl PersonEditorState {
         self.new_photo_path.clear();
         self.new_display_mode = PersonDisplayMode::NameOnly;
         self.new_photo_scale = 1.0;
+        self.new_parent_edge_bend_percent = 50.0;
     }
 }
 

@@ -46,7 +46,8 @@ impl SqliteTreeRepository {
                     death TEXT,
                     photo_path TEXT,
                     display_mode INTEGER NOT NULL,
-                    photo_scale REAL NOT NULL
+                    photo_scale REAL NOT NULL,
+                    parent_edge_bend_percent REAL NOT NULL DEFAULT 50.0
                 );
 
                 CREATE TABLE IF NOT EXISTS parent_child_edges (
@@ -109,7 +110,22 @@ impl SqliteTreeRepository {
                 CREATE INDEX IF NOT EXISTS idx_event_relations_person ON event_relations(person_id);
                 ",
             )
-            .map_err(|error| TreeRepositoryError::Write(error.to_string()))
+            .map_err(|error| TreeRepositoryError::Write(error.to_string()))?;
+
+        if let Err(error) = connection.execute(
+            "ALTER TABLE persons ADD COLUMN parent_edge_bend_percent REAL NOT NULL DEFAULT 50.0",
+            [],
+        ) {
+            let is_duplicate_column_error = error
+                .to_string()
+                .to_lowercase()
+                .contains("duplicate column name");
+            if !is_duplicate_column_error {
+                return Err(TreeRepositoryError::Write(error.to_string()));
+            }
+        }
+
+        Ok(())
     }
 
     fn has_saved_tree(connection: &Connection) -> Result<bool, TreeRepositoryError> {
@@ -217,7 +233,8 @@ impl SqliteTreeRepository {
                 SELECT
                     id, name, gender, birth, memo,
                     position_x, position_y, deceased, death,
-                    photo_path, display_mode, photo_scale
+                    photo_path, display_mode, photo_scale,
+                    parent_edge_bend_percent
                 FROM persons
                 ",
             )
@@ -238,6 +255,7 @@ impl SqliteTreeRepository {
                     row.get::<_, Option<String>>(9)?,
                     row.get::<_, i64>(10)?,
                     row.get::<_, f32>(11)?,
+                    row.get::<_, f32>(12)?,
                 ))
             })
             .map_err(|error| TreeRepositoryError::Read(error.to_string()))?;
@@ -257,6 +275,7 @@ impl SqliteTreeRepository {
                 photo_path,
                 display_mode_value,
                 photo_scale,
+                parent_edge_bend_percent,
             ) = person_row.map_err(|error| TreeRepositoryError::Read(error.to_string()))?;
 
             let id = Self::parse_uuid(&id_text, "person id")?;
@@ -278,6 +297,7 @@ impl SqliteTreeRepository {
                     photo_path,
                     display_mode,
                     photo_scale,
+                    parent_edge_bend_percent,
                 },
             );
         }
@@ -504,8 +524,8 @@ impl SqliteTreeRepository {
                 INSERT INTO persons (
                     id, name, gender, birth, memo,
                     position_x, position_y, deceased, death,
-                    photo_path, display_mode, photo_scale
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                    photo_path, display_mode, photo_scale, parent_edge_bend_percent
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
                 ",
             )
             .map_err(|error| TreeRepositoryError::Write(error.to_string()))?;
@@ -524,7 +544,8 @@ impl SqliteTreeRepository {
                     &person.death,
                     &person.photo_path,
                     Self::from_display_mode(person.display_mode),
-                    person.photo_scale
+                    person.photo_scale,
+                    person.parent_edge_bend_percent
                 ])
                 .map_err(|error| TreeRepositoryError::Write(error.to_string()))?;
         }

@@ -86,7 +86,7 @@ impl App {
             Ok(Some(settings)) => {
                 self.apply_settings(settings);
                 self.log
-                    .add(t("log_settings_loaded"), LogLevel::Debug);
+                    .add(t("log_settings_loaded"), LogLevel::Information);
             }
             Ok(None) => {
                 self.apply_settings(AppSettings::default());
@@ -145,7 +145,7 @@ impl App {
         self.log
             .add(
                 format!("{}: {}", t("log_file_saved"), self.file.file_path),
-                LogLevel::Debug,
+                LogLevel::Information,
             );
     }
 
@@ -167,7 +167,7 @@ impl App {
         self.log
             .add(
                 format!("{}: {}", t("log_file_loaded"), self.file.file_path),
-                LogLevel::Debug,
+                LogLevel::Information,
             );
     }
 

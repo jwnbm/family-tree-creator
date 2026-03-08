@@ -67,6 +67,7 @@ impl App {
             self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
             self.person_editor.new_display_mode = person.display_mode;
             self.person_editor.new_photo_scale = person.photo_scale;
+            self.person_editor.new_parent_edge_bend_percent = person.parent_edge_bend_percent;
         }
     }
 
@@ -125,6 +126,13 @@ impl App {
         }
         ui.label(t("memo"));
         ui.text_edit_multiline(&mut self.person_editor.new_memo);
+        ui.horizontal(|ui| {
+            ui.label(t("parent_edge_bend_percent"));
+            ui.add(
+                egui::Slider::new(&mut self.person_editor.new_parent_edge_bend_percent, 0.0..=100.0)
+                    .suffix("%"),
+            );
+        });
     }
 
     fn render_person_photo_fields(&mut self, ui: &mut egui::Ui, t: &impl Fn(&str) -> String) {
@@ -213,6 +221,8 @@ impl App {
             };
             person.display_mode = self.person_editor.new_display_mode;
             person.photo_scale = self.person_editor.new_photo_scale.clamp(0.1, 3.0);
+            person.parent_edge_bend_percent =
+                self.person_editor.new_parent_edge_bend_percent.clamp(0.0, 100.0);
             self.file.status = t("person_updated");
         }
     }

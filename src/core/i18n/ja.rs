@@ -138,6 +138,7 @@ pub fn translate(key: &str) -> String {
         "choose_photo" => "写真を選択...",
         "clear_photo" => "写真をクリア",
         "photo_scale" => "写真倍率:",
+        "parent_edge_bend_percent" => "親子エッジ曲折率:",
         "node_color_theme" => "ノード配色テーマ:",
         "node_color_theme_default" => "標準",
         "node_color_theme_high_contrast" => "高コントラスト",

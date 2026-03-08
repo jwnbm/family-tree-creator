@@ -179,6 +179,7 @@ impl NodeInteractionHandler for App {
                                     self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                                     self.person_editor.new_display_mode = person.display_mode;
                                     self.person_editor.new_photo_scale = person.photo_scale;
+                                    self.person_editor.new_parent_edge_bend_percent = person.parent_edge_bend_percent;
                                 }
                             } else {
                                 self.person_editor.selected = None;
@@ -202,6 +203,7 @@ impl NodeInteractionHandler for App {
                                 self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                                 self.person_editor.new_display_mode = person.display_mode;
                                 self.person_editor.new_photo_scale = person.photo_scale;
+                                self.person_editor.new_parent_edge_bend_percent = person.parent_edge_bend_percent;
                             }
                         }
                     } else {
@@ -224,6 +226,7 @@ impl NodeInteractionHandler for App {
                             self.person_editor.new_photo_path = person.photo_path.clone().unwrap_or_default();
                             self.person_editor.new_display_mode = person.display_mode;
                             self.person_editor.new_photo_scale = person.photo_scale;
+                            self.person_editor.new_parent_edge_bend_percent = person.parent_edge_bend_percent;
                         }
                     }
                 }
