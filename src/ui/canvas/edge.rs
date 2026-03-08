@@ -1,7 +1,37 @@
 use crate::app::{App, EDGE_STROKE_WIDTH, SPOUSE_LINE_OFFSET};
-use crate::core::tree::{PersonId, Gender};
+use crate::core::tree::{Gender, PersonId};
 use crate::ui::EdgeRenderer;
 use std::collections::HashMap;
+
+fn draw_vertical_polyline(
+    painter: &egui::Painter,
+    start: egui::Pos2,
+    end: egui::Pos2,
+    stroke: egui::Stroke,
+) {
+    let mid_y = (start.y + end.y) * 0.5;
+    let bend_start = egui::pos2(start.x, mid_y);
+    let bend_end = egui::pos2(end.x, mid_y);
+
+    painter.line_segment([start, bend_start], stroke);
+    painter.line_segment([bend_start, bend_end], stroke);
+    painter.line_segment([bend_end, end], stroke);
+}
+
+fn draw_horizontal_polyline(
+    painter: &egui::Painter,
+    start: egui::Pos2,
+    end: egui::Pos2,
+    stroke: egui::Stroke,
+) {
+    let mid_x = (start.x + end.x) * 0.5;
+    let bend_start = egui::pos2(mid_x, start.y);
+    let bend_end = egui::pos2(mid_x, end.y);
+
+    painter.line_segment([start, bend_start], stroke);
+    painter.line_segment([bend_start, bend_end], stroke);
+    painter.line_segment([bend_end, end], stroke);
+}
 
 impl EdgeRenderer for App {
     fn render_canvas_edges(
@@ -15,26 +45,28 @@ impl EdgeRenderer for App {
             if let (Some(r1), Some(r2)) = (screen_rects.get(&s.person1), screen_rects.get(&s.person2)) {
                 let a = r1.center();
                 let b = r2.center();
-                
-                let dir = (b - a).normalized();
-                let perpendicular = egui::vec2(-dir.y, dir.x) * SPOUSE_LINE_OFFSET;
-                
-                painter.line_segment(
-                    [a + perpendicular, b + perpendicular],
-                    egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
-                );
-                painter.line_segment(
-                    [a - perpendicular, b - perpendicular],
-                    egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
-                );
+                let stroke = egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY);
+
+                let offset = egui::vec2(0.0, SPOUSE_LINE_OFFSET);
+                let a_upper = a + offset;
+                let b_upper = b + offset;
+                let a_lower = a - offset;
+                let b_lower = b - offset;
+
+                draw_horizontal_polyline(painter, a_upper, b_upper, stroke);
+                draw_horizontal_polyline(painter, a_lower, b_lower, stroke);
                 
                 // メモがある場合、ツールチップを表示
                 if !s.memo.is_empty() {
-                    let mid = egui::pos2((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
-                    let line_rect = egui::Rect::from_center_size(
-                        mid,
-                        egui::vec2((b.x - a.x).abs().max(20.0), (b.y - a.y).abs().max(20.0))
-                    );
+                    let min_x = a.x.min(b.x);
+                    let max_x = a.x.max(b.x);
+                    let min_y = a.y.min(b.y);
+                    let max_y = a.y.max(b.y);
+                    let line_rect = egui::Rect::from_min_max(
+                        egui::pos2(min_x, min_y),
+                        egui::pos2(max_x, max_y),
+                    )
+                    .expand(12.0);
                     let line_id = ui.id().with(("spouse_line", s.person1, s.person2));
                     let line_response = ui.interact(line_rect, line_id, egui::Sense::hover());
                     if line_response.hovered() {
@@ -93,8 +125,9 @@ impl EdgeRenderer for App {
                                 (father_center.y + mother_center.y) / 2.0
                             );
                             let child_top = rc.center_top();
-                            
-                            painter.line_segment([mid, child_top], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
+                            let stroke = egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY);
+
+                            draw_vertical_polyline(painter, mid, child_top, stroke);
                         }
                     } else {
                         if let (Some(rf), Some(rm), Some(rc)) = (
@@ -104,19 +137,17 @@ impl EdgeRenderer for App {
                         ) {
                             let father_center = rf.center();
                             let mother_center = rm.center();
-                            
-                            painter.line_segment(
-                                [father_center, mother_center],
-                                egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY)
-                            );
+                            let stroke = egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY);
+
+                            draw_horizontal_polyline(painter, father_center, mother_center, stroke);
                             
                             let mid = egui::pos2(
                                 (father_center.x + mother_center.x) / 2.0,
                                 (father_center.y + mother_center.y) / 2.0
                             );
                             let child_top = rc.center_top();
-                            
-                            painter.line_segment([mid, child_top], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
+
+                            draw_vertical_polyline(painter, mid, child_top, stroke);
                         }
                     }
                     processed_children.insert(child_id);
@@ -127,7 +158,12 @@ impl EdgeRenderer for App {
             if let (Some(rp), Some(rc)) = (screen_rects.get(&e.parent), screen_rects.get(&e.child)) {
                 let a = rp.center_bottom();
                 let b = rc.center_top();
-                painter.line_segment([a, b], egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY));
+                draw_vertical_polyline(
+                    painter,
+                    a,
+                    b,
+                    egui::Stroke::new(EDGE_STROKE_WIDTH, egui::Color32::LIGHT_GRAY),
+                );
             }
         }
     }
